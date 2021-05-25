@@ -120,7 +120,9 @@ func TestEchoAcceptZeroLog(t *testing.T) {
 		t.Errorf("ErrorOnGlobalZeroLog:%s", err.Error())
 	}
 
-	e := NewEcho()
+	e, cleanup := NewEchoBuilder().AppName("BartonTest").New()
+	defer cleanup()
+
 	e.GET("/testpath", func(c echo.Context) error {
 		return c.String(http.StatusMultiStatus, "")
 	})
