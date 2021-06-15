@@ -120,7 +120,7 @@ func TestEchoAcceptZeroLog(t *testing.T) {
 		t.Errorf("ErrorOnGlobalZeroLog:%s", err.Error())
 	}
 
-	e, cleanup := NewEchoBuilder().AppName("BartonTest").New()
+	e, cleanup := NewWebAppBuilder().AppName("BartonTest").NewEcho()
 	defer cleanup()
 
 	e.GET("/testpath", func(c echo.Context) error {

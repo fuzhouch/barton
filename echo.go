@@ -15,12 +15,12 @@ type echoAppConfig struct {
 	enablePrometheus bool
 }
 
-// NewEchoBuilder is main entry to start building an Echo app engine.
+// NewWebAppBuilder is main entry to start building an Echo app engine.
 // It returns a chainable configuration object, echoAppConfig, which
 // is configured as setter functions. The final step is it calls New()
 // function to really build an Echo engine, plus a cleanup function
 // returned.
-func NewEchoBuilder() *echoAppConfig {
+func NewWebAppBuilder() *echoAppConfig {
 	return &echoAppConfig{
 		appName: "Barton-Echo-App",
 	}
@@ -33,10 +33,10 @@ func (c *echoAppConfig) AppName(name string) *echoAppConfig {
 	return c
 }
 
-// New method creates a real echo.Echo object, plus a cleanup() function
+// NewEcho method creates a real echo.Echo object, plus a cleanup() function
 // to execute internal cleanup logic, such as unregistering Prometheus
 // metrics collector in global registry.
-func (c *echoAppConfig) New() (*echo.Echo, func()) {
+func (c *echoAppConfig) NewEcho() (*echo.Echo, func()) {
 	e := echo.New()
 	wrapper := lecho.From(log.Logger)
 	e.Logger = wrapper

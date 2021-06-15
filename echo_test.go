@@ -20,7 +20,7 @@ func TestEchoCreate(t *testing.T) {
 	// inside Promethues library complaining duplicated registration
 	// attempts. This is because Prometheus registration is done in
 	// global namespace.
-	e, cleanup := NewEchoBuilder().AppName("BartonTest").New()
+	e, cleanup := NewWebAppBuilder().AppName("BartonTest").NewEcho()
 	defer cleanup()
 
 	// Perform an HTTP call
