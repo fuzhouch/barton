@@ -23,7 +23,7 @@ famous logging libraries such as [Zap](https://github.com/uber-go/zap)
 or [Logrus](https://github.com/sirupsen/logrus), or even standard log
 module. It does not expose much options either.
 
-I understand this may prevents some developers from using Barton in
+This design decision may prevent some developers from using Barton in
 their projects, but it keeps a minimal wrapper layer in APIs,
 which leads to a clean codebase, easy to understand and optimize.
 For developers who really disagree Barton's dependency selection or
