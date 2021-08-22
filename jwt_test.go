@@ -49,8 +49,7 @@ func TestEchoEnableJWTPreventNoJWTAccess(t *testing.T) {
 	testKey := "test123"
 	c := NewHMACJWTConfig([]byte(testKey))
 
-	e, cleanup := NewWebAppBuilder().
-		AppName("JWTTest").
+	e, cleanup := NewWebAppBuilder("JWTTest").
 		EnableHMACJWT(c).
 		NewEcho()
 	defer cleanup()
@@ -68,8 +67,7 @@ func TestEchoEnableJWTPreventInvalidJWTAccess(t *testing.T) {
 	testKey := []byte("test123")
 	c := NewHMACJWTConfig(testKey)
 
-	e, cleanup := NewWebAppBuilder().
-		AppName("JWTTest").
+	e, cleanup := NewWebAppBuilder("JWTTest").
 		EnableHMACJWT(c).
 		NewEcho()
 	defer cleanup()
@@ -103,8 +101,7 @@ func TestEchoEnableJWTAllowValidToken(t *testing.T) {
 	testKey := []byte("test123")
 	c := NewHMACJWTConfig(testKey).SigningMethod("HS384")
 
-	e, cleanup := NewWebAppBuilder().
-		AppName("JWTTest").
+	e, cleanup := NewWebAppBuilder("JWTTest").
 		EnableHMACJWT(c).
 		NewEcho()
 	defer cleanup()
@@ -131,8 +128,7 @@ func TestEchoEnableJWTAllowValidToken(t *testing.T) {
 }
 
 func TestEchoDisableJWT(t *testing.T) {
-	e, cleanup := NewWebAppBuilder().
-		AppName("JWTTest").
+	e, cleanup := NewWebAppBuilder("JWTTest").
 		DisableHMACJWT().
 		NewEcho()
 	defer cleanup()

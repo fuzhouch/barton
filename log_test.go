@@ -76,7 +76,7 @@ func TestEchoAcceptZeroLog(t *testing.T) {
 	zc := NewZerologConfig().SetWriter(buf).UseUTCTime()
 	zc.SetGlobalPolicy().SetGlobalLogger()
 
-	e, cleanup := NewWebAppBuilder().AppName("BartonTest").NewEcho()
+	e, cleanup := NewWebAppBuilder("BartonTest").NewEcho()
 	defer cleanup()
 
 	buf.Reset() // Remove log lines written during Echo app creation.

@@ -22,10 +22,8 @@ type appConfig struct {
 // is configured as setter functions. The final step is it calls New()
 // function to really build an Echo engine, plus a cleanup function
 // returned.
-func NewWebAppBuilder() *appConfig {
-	return &appConfig{
-		appName: "Barton-Echo-App",
-	}
+func NewWebAppBuilder(appName string) *appConfig {
+	return &appConfig{appName: appName}
 }
 
 // AppName setter sets app name for Echo engine. By defualt the name is
