@@ -29,7 +29,7 @@ which leads to a clean codebase, easy to understand and optimize.
 For developers who really disagree Barton's dependency selection or
 configuration choice, they could fork the code and modify as they want.
 
-## How to use Barton in your code
+## How to use Barton
 
 Barton is built with Golang 1.16 with Go module. It can be referenced
 by command below.
@@ -61,7 +61,7 @@ func main() {
 	c := barton.NewHMACJWTConfig(testKey)
 
         // Create Echo app with Prometheus enabled.
-	// 
+        // JWT token authentication is enabled explicitly.
 	e, cleanup := barton.NewWebAppBuilder("MyAPI").EnableHMACJWT(c).NewEcho()
 	defer cleanup()
 
