@@ -10,10 +10,8 @@ import (
 
 func TestEchoCreate(t *testing.T) {
 	buf := bytes.NewBufferString("")
-	err := InitGlobalZeroLog(buf)
-	if err != nil {
-		t.Errorf("ErrorOnGlobalZeroLog:%s", err.Error())
-	}
+	zc := NewZerologConfig().SetWriter(buf).UseUTCTime()
+	zc.SetGlobalPolicy().SetGlobalLogger()
 
 	// Cleanup() function must be called at last step to make
 	// sure we can create another instance without internal error

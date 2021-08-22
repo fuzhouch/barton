@@ -10,43 +10,65 @@ import (
 	"github.com/ziflex/lecho/v2"
 )
 
-type echoAppConfig struct {
-	appName          string
-	enablePrometheus bool
+type appConfig struct {
+	appName                 string
+	enablePrometheus        bool
+	enableJWTAuthentication bool
+	jwtConfig               *HMACJWTConfig
 }
 
-// NewWebAppBuilder is main entry to start building an Echo app engine.
-// It returns a chainable configuration object, echoAppConfig, which
+// NewWebApp is main entry to start building an Echo app engine.
+// It returns a chainable configuration object, appConfig, which
 // is configured as setter functions. The final step is it calls New()
 // function to really build an Echo engine, plus a cleanup function
 // returned.
-func NewWebAppBuilder() *echoAppConfig {
-	return &echoAppConfig{
+func NewWebAppBuilder() *appConfig {
+	return &appConfig{
 		appName: "Barton-Echo-App",
 	}
 }
 
 // AppName setter sets app name for Echo engine. By defualt the name is
 // set to Barton-Echo-App.
-func (c *echoAppConfig) AppName(name string) *echoAppConfig {
+func (c *appConfig) AppName(name string) *appConfig {
 	c.appName = name
 	return c
 }
 
-// NewEcho method creates a real echo.Echo object, plus a cleanup() function
-// to execute internal cleanup logic, such as unregistering Prometheus
-// metrics collector in global registry.
-func (c *echoAppConfig) NewEcho() (*echo.Echo, func()) {
-	e := echo.New()
-	wrapper := lecho.From(log.Logger)
-	e.Logger = wrapper
-	e.Use(lecho.Middleware(lecho.Config{Logger: wrapper}))
-	e.Use(middleware.Recover())
+// EnableJWT method enables authentication based on JWT.
+func (c *appConfig) EnableHMACJWT(conf *HMACJWTConfig) *appConfig {
+	c.jwtConfig = conf
+	return c
+}
 
+// DisableJWT method disables authentication based on JWT.
+func (c *appConfig) DisableHMACJWT() *appConfig {
+	c.jwtConfig = nil
+	return c
+}
+
+// NewEcho method creates a real echo.Echo object, plus a cleanup()
+// function to execute internal cleanup logic, such as
+// unregistering Prometheus metrics collector in global registry.
+func (c *appConfig) NewEcho() (*echo.Echo, func()) {
+	e := echo.New()
+
+	wrapper := lecho.From(log.Logger)
+	e.Logger = wrapper // Echo internal log uses zerolog
+	e.Use(lecho.Middleware(lecho.Config{Logger: wrapper}))
 	e.Logger.SetLevel(elog.INFO)
+
+	e.Use(middleware.Recover())
 
 	p := prometheus.NewPrometheus(c.appName, nil)
 	p.Use(e)
+	log.Info().Msg("PrometheusExporter.Enabled")
+
+	if c.jwtConfig != nil {
+		e.Use(c.jwtConfig.NewEchoMiddleware())
+		log.Info().Msg("HMACJWTAuth.Enabled")
+	}
+
 	cleanupFunc := func() {
 		for _, m := range p.MetricsList {
 			pg.Unregister(m.MetricCollector)

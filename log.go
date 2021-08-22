@@ -9,24 +9,45 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// NewZerolog returns an Zerolog object with pre-configured settings.
-// It's not exposed. Developers should always call InitGlobalZeroLog()
-// instead.
-func newZerolog(toFile io.Writer) (zerolog.Logger, error) {
-	hostname, err := os.Hostname()
-	if err != nil {
-		return zerolog.New(nil), err
-	}
-
-	logger := zerolog.New(toFile).
-		With().
-		Timestamp().
-		Str("node", hostname).
-		Logger()
-	return logger, nil
+// ZerologConfig creates an object to configure and set global Zerolog
+// object.
+type ZerologConfig struct {
+	useUTCTime   bool
+	targetWriter io.Writer
 }
 
-// SetGlobalZeroLogPolicy sets default zerolog settings used by Gregson.
+// NewZerologConfig creates a new config object with default settings:
+// timestamp written to RFC3339 format, and write to os.Stderr.
+func NewZerologConfig() *ZerologConfig {
+	return &ZerologConfig{
+		useUTCTime:   true,
+		targetWriter: os.Stderr,
+	}
+}
+
+// UseUTCTime forces timezone info to UTC in Zerolog. Need to
+// call SetGlobalPolicy() to make it take effect.
+func (c *ZerologConfig) UseUTCTime() *ZerologConfig {
+	c.useUTCTime = true
+	return c
+}
+
+// UseLocalTime enforces timezone info added to Zerolog. Need to
+// call SetGlobalPolicy() to make it take effect.
+func (c *ZerologConfig) UseLocalTime() *ZerologConfig {
+	c.useUTCTime = false
+	return c
+}
+
+// SetWriter sets a writer object (io.Writer) that log lines are written
+// to. Note that the io.Writer needs to be closed by caller side if
+// any. By default, ZerologConfig sets writer to os.Stderr.
+func (c *ZerologConfig) SetWriter(writer io.Writer) *ZerologConfig {
+	c.targetWriter = writer
+	return c
+}
+
+// SetGlobalPolicy sets default zerolog settings used by Gregson.
 // The following policy are enforced:
 //
 // 1. Always use RFC3339 format ("2006-01-02T15:04:05Z07:00")
@@ -46,27 +67,32 @@ func newZerolog(toFile io.Writer) (zerolog.Logger, error) {
 // #4 is set by almost same reason with #3. Sampling sacrifaces diagnose
 // feasibility to get smaller file size. This is usually not worthy
 // in production environment.
-func SetGlobalZeroLogPolicy() {
+func (c *ZerologConfig) SetGlobalPolicy() *ZerologConfig {
 	zerolog.TimeFieldFormat = time.RFC3339
-	zerolog.TimestampFunc = func() time.Time {
-		return time.Now().In(time.UTC)
+	if c.useUTCTime {
+		zerolog.TimestampFunc = func() time.Time {
+			return time.Now().In(time.UTC)
+		}
+	} else {
+		zerolog.TimestampFunc = time.Now
 	}
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	zerolog.DisableSampling(true)
+	return c
 }
 
-// InitGlobalZeroLog sets global zerolog with default settings.
-func InitGlobalZeroLog(toFile io.Writer) error {
-	logger, err := newZerolog(toFile)
-	if err != nil {
-		return err
-	}
+// SetGlobalLogger creates a logger object and assign it to global
+// Zerolog object (log.Logger).
+func (c *ZerologConfig) SetGlobalLogger() {
+	logger := zerolog.New(c.targetWriter).
+		With().
+		Timestamp().
+		Logger()
 	log.Logger = logger
-	return nil
 }
 
-// SetOffGlobalZeroLog configures global zerolog to discard messages.
+// SetOffGlobalLogger configures global zerolog to discard messages.
 // This is useful when writing tests, but do not use in production.
-func SetOffGlobalZeroLog() {
+func (c *ZerologConfig) SetOffGlobalLogger() {
 	log.Logger = zerolog.Nop()
 }
