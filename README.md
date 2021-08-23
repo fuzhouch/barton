@@ -49,19 +49,41 @@ structural logs to standard error. Meanwhile, JWT is not enabled until
 integration is already enabled and exposed under ``/metrics`` path.
 
 ```
-import "github.com/fuzhouch/barton"
+// File - go.mod
+module github.com/fuzhouch/test
+
+require (
+	github.com/fuzhouch/barton v0.0.0-test
+	github.com/labstack/echo/v4 v4.3.0 // indirect
+)
+
+replace github.com/fuzhouch/barton => ../barton
+
+go 1.16
+```
+
+```go
+// File - main.go
+package main
+
+import (
+	"net/http"
+
+	"github.com/fuzhouch/barton"
+	"github.com/labstack/echo/v4"
+)
 
 func main() {
-        // Setup Zerolog
-	zc := barton.NewZerologConfig().SetWriter(buf).UseUTCTime()
+	// Setup Zerolog
+	zc := barton.NewZerologConfig().UseUTCTime()
 	zc.SetGlobalPolicy().SetGlobalLogger()
 
-        // Setup JWT authentication
-        testKey := []byte("keep-it-secret")
+	// Setup JWT authentication
+	testKey := []byte("keep-it-secret")
 	c := barton.NewHMACJWTConfig(testKey)
 
-        // Create Echo app with Prometheus enabled.
-        // JWT token authentication is enabled explicitly.
+	// Create Echo app with Prometheus enabled.
+	// JWT token authentication is enabled explicitly.
 	e, cleanup := barton.NewWebAppBuilder("MyAPI").EnableHMACJWT(c).NewEcho()
 	defer cleanup()
 
