@@ -49,17 +49,10 @@ structural logs to standard error. Meanwhile, JWT is not enabled until
 integration is already enabled and exposed under ``/metrics`` path.
 
 ```
-// File - go.mod
-module github.com/fuzhouch/test
-
-require (
-	github.com/fuzhouch/barton v0.0.0-test
-	github.com/labstack/echo/v4 v4.3.0 // indirect
-)
-
-replace github.com/fuzhouch/barton => ../barton
-
-go 1.16
+$ go mod init github.com/fuzhouch/test
+$ go get -u github.com/fuzhouch/barton@v0.1.0
+$ go get -u github.com/labstack/echo/v4@v4.3.0
+$ vim main.go
 ```
 
 ```go
