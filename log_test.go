@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/rs/zerolog/log"
+	"github.com/stretchr/testify/assert"
 )
 
 // LogContent is used to decode log content.
@@ -18,7 +18,6 @@ import (
 type LogContent struct {
 	Level     string  `json:"level"`
 	Host      string  `json:"host"` // Server which sends request
-	Node      string  `json:"node"` // Machine which writes log
 	Time      string  `json:"time"`
 	Status    int     `json:"status"`
 	Method    string  `json:"method"`
@@ -30,99 +29,57 @@ type LogContent struct {
 }
 
 func TestInitGlobalZeroLogDefaultFields(t *testing.T) {
-	hostname, err := os.Hostname()
-	if err != nil {
-		t.Errorf("ErrorOnHostname:%s", err.Error())
-		return
-	}
 	buf := bytes.NewBufferString("")
 
-	// Run code
-	err = InitGlobalZeroLog(buf)
-	if err != nil {
-		t.Errorf("ErrorOnGlobalZeroLog:%s", err.Error())
-	}
+	zc := NewZerologConfig().SetWriter(buf).UseUTCTime()
+	zc.SetGlobalPolicy().SetGlobalLogger()
 
 	log.Info().Msg("Test")
 
 	// Parse results
 	content := LogContent{}
-	err = json.Unmarshal(buf.Bytes(), &content)
-	if err != nil {
-		t.Errorf("ErrorOnDecodingJSON:%s,val=%s",
-			err.Error(), buf.String())
-		return
-	}
+	err := json.Unmarshal(buf.Bytes(), &content)
+	assert.Nil(t, err, "ErrorOnDecodingJSON:%s", buf.String())
 
 	// Verification
-	if content.Level != "info" {
-		t.Errorf("Level:expect=info,actual=%s,%s",
-			content.Level, buf.String())
-		return
-	}
-
-	if content.Node != hostname {
-		t.Errorf("Host:expect=%s,actual=%s",
-			hostname, content.Node)
-		return
-	}
+	assert.Equal(t, "info", content.Level,
+		"Level:expect=info,actual=%s,%s",
+		content.Level, buf.String())
 
 	_, err = time.Parse(time.RFC3339, content.Time)
-	if err != nil {
-		t.Errorf("ErrorOnTime.Parse:%s", err.Error())
-		return
-	}
-
-	if content.Message != "Test" {
-		t.Errorf("Message:expect=Test,actual=%s",
-			content.Message)
-		return
-	}
+	assert.Nil(t, err, "ErrorOnTime.Parse")
+	assert.Equal(t, "Test", content.Message)
 }
 
 func TestInitGlobalZeroLogIgnoreDebug(t *testing.T) {
 	buf := bytes.NewBufferString("")
-	SetGlobalZeroLogPolicy()
-	err := InitGlobalZeroLog(buf)
-	if err != nil {
-		t.Errorf("ErrorOnGlobalZeroLog:%s", err.Error())
-	}
+	zc := NewZerologConfig().SetWriter(buf).UseUTCTime()
+	zc.SetGlobalPolicy().SetGlobalLogger()
 
 	log.Debug().Msg("IgnoreDebug")
-
-	if buf.String() != "" {
-		t.Errorf("IgnoreDebug:actual=%s", buf.String())
-		return
-	}
+	assert.Equal(t, "", buf.String(), "IgnoreDebugNotCaptured")
 }
 
 func TestSetOffGlobalZeroLog(t *testing.T) {
 	buf := bytes.NewBufferString("")
-	SetOffGlobalZeroLog()
+
+	zc := NewZerologConfig().SetWriter(buf)
+	zc.SetGlobalLogger()    // First let's set an real logger
+	zc.SetOffGlobalLogger() // Then we disable it.
 
 	log.Info().Msg("Test")
-	if buf.String() != "" {
-		t.Errorf("SetOff:actual=%s", buf.String())
-		return
-	}
+	assert.Equal(t, "", buf.String(), "SetOffWritesLog")
 }
 
 func TestEchoAcceptZeroLog(t *testing.T) {
-	hostname, err := os.Hostname()
-	if err != nil {
-		t.Errorf("ErrorOnHostname:%s", err.Error())
-		return
-	}
-
 	buf := bytes.NewBufferString("")
-	err = InitGlobalZeroLog(buf)
-	if err != nil {
-		t.Errorf("ErrorOnGlobalZeroLog:%s", err.Error())
-	}
+	zc := NewZerologConfig().SetWriter(buf).UseUTCTime()
+	zc.SetGlobalPolicy().SetGlobalLogger()
 
-	e, cleanup := NewEchoBuilder().AppName("BartonTest").New()
+	e, cleanup := NewWebAppBuilder("BartonTest").NewEcho()
 	defer cleanup()
 
+	buf.Reset() // Remove log lines written during Echo app creation.
 	e.GET("/testpath", func(c echo.Context) error {
 		return c.String(http.StatusMultiStatus, "")
 	})
@@ -135,86 +92,68 @@ func TestEchoAcceptZeroLog(t *testing.T) {
 
 	// Parse results
 	content := LogContent{}
-	err = json.Unmarshal(buf.Bytes(), &content)
-	if err != nil {
-		t.Errorf("ErrorOnDecodingJSON:%s,val=%s",
-			err.Error(), buf.String())
-		return
-	}
+	err := json.Unmarshal(buf.Bytes(), &content)
+	assert.Nil(t, err, "ErrorOnDecodingJSON:'%s'", buf.String())
 
 	// Verification
-	if content.Level != "info" {
-		t.Errorf("Level:expect=info,actual=%s,%s",
-			content.Level, buf.String())
-		return
-	}
-
-	if content.Node != hostname {
-		t.Errorf("Node:expect=%s,actual=%s",
-			hostname, content.Host)
-		return
-	}
+	assert.Equal(t, "info", content.Level,
+		"Level:expect=info,actual=%s,%s",
+		content.Level, buf.String())
 
 	_, err = time.Parse(time.RFC3339, content.Time)
-	if err != nil {
-		t.Errorf("ErrorOnTime.Parse:%s", err.Error())
-		return
-	}
+	assert.Nil(t, err, "ErrorOnTime.Parse")
 
-	if content.Status != http.StatusMultiStatus {
-		t.Errorf("Status:expect=%d,actual=%d,%s",
-			http.StatusMultiStatus,
-			content.Status,
-			buf.String())
-		return
-	}
+	assert.Equal(t, http.StatusMultiStatus, content.Status,
+		"Status:expect=%d,actual=%d,%s",
+		http.StatusMultiStatus, content.Status, buf.String())
 
-	if content.Method != "GET" {
-		t.Errorf("Method:expect=GET,actual=%s,%s",
-			content.Method,
-			buf.String())
-		return
-	}
+	assert.Equal(t, "GET", content.Method,
+		"Method:expect=GET,actual=%s,%s",
+		content.Method, buf.String())
 
-	if content.Uri != "/testpath" {
-		t.Errorf("Uri:expect=/testpath,actual=%s,%s",
-			content.Uri,
-			buf.String())
-		return
-	}
+	assert.Equal(t, "/testpath", content.Uri,
+		"Uri:expect=/testpath,actual=%s,%s",
+		content.Uri, buf.String())
 
-	if content.RemoteIP == "" {
-		t.Errorf("RemoteIP:expect=nonEmpty,actual=%s,%s",
-			content.RemoteIP,
-			buf.String())
-		return
-	}
+	assert.NotEqual(t, "", content.RemoteIP,
+		"RemoteIP:expect=nonEmpty,actual=%s,%s",
+		content.RemoteIP, buf.String())
 
-	if content.Latency <= 0 {
-		t.Errorf("Latency:expect=Positive,actual=%f,%s",
-			content.Latency,
-			buf.String())
-	}
+	assert.True(t, content.Latency > 0,
+		"Latency:expect=Positive,actual=%f,%s",
+		content.Latency, buf.String())
 
-	if content.Uri != "/testpath" {
-		t.Errorf("Uri:expect=/testpath,actual=%s,%s",
-			content.Uri,
-			buf.String())
-		return
-	}
+	assert.Equal(t, "/testpath", content.Uri,
+		"Uri:expect=/testpath,actual=%s,%s",
+		content.Uri, buf.String())
 
-	if content.UserAgent != "Golang_UT" {
-		t.Errorf("UserAgent:expect=Golang_UT,actual=%s,%s",
-			content.UserAgent,
-			buf.String())
-		return
-	}
+	assert.Equal(t, "Golang_UT", content.UserAgent,
+		"UserAgent:expect=Golang_UT,actual=%s,%s",
+		content.UserAgent, buf.String())
 
-	if content.Message != "" {
-		t.Errorf("Message:expectEmpty,actual=%s,%s",
-			content.Message,
-			buf.String())
-		return
-	}
+	assert.Equal(t, "", content.Message,
+		"Message:expectEmpty,actual=%s,%s",
+		content.Message, buf.String())
+}
 
+func TestUseLocalTime(t *testing.T) {
+	buf := bytes.NewBufferString("")
+
+	zc := NewZerologConfig().SetWriter(buf).UseLocalTime()
+	zc.SetGlobalPolicy().SetGlobalLogger()
+
+	log.Info().Msg("Test")
+
+	// Parse results
+	content := LogContent{}
+	err := json.Unmarshal(buf.Bytes(), &content)
+	assert.Nil(t, err, "ErrorOnDecodingJSON:%s", buf.String())
+
+	ts, err := time.Parse(time.RFC3339, content.Time)
+	assert.Nil(t, err, "content.Time.Parse")
+
+	zoneName, offset := ts.Zone()
+	expectedZone, expectedOffset := time.Now().Zone()
+	assert.Equal(t, expectedZone, zoneName)
+	assert.Equal(t, expectedOffset, offset)
 }
