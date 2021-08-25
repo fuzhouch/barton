@@ -14,7 +14,6 @@ type appConfig struct {
 	appName                 string
 	enablePrometheus        bool
 	enableJWTAuthentication bool
-	jwtConfig               *HMACJWTConfig
 }
 
 // NewWebApp is main entry to start building an Echo app engine.
@@ -30,18 +29,6 @@ func NewWebAppBuilder(appName string) *appConfig {
 // set to Barton-Echo-App.
 func (c *appConfig) AppName(name string) *appConfig {
 	c.appName = name
-	return c
-}
-
-// EnableJWT method enables authentication based on JWT.
-func (c *appConfig) EnableHMACJWT(conf *HMACJWTConfig) *appConfig {
-	c.jwtConfig = conf
-	return c
-}
-
-// DisableJWT method disables authentication based on JWT.
-func (c *appConfig) DisableHMACJWT() *appConfig {
-	c.jwtConfig = nil
 	return c
 }
 
@@ -61,11 +48,6 @@ func (c *appConfig) NewEcho() (*echo.Echo, func()) {
 	p := prometheus.NewPrometheus(c.appName, nil)
 	p.Use(e)
 	log.Info().Msg("PrometheusExporter.Enabled")
-
-	if c.jwtConfig != nil {
-		e.Use(c.jwtConfig.NewEchoMiddleware())
-		log.Info().Msg("HMACJWTAuth.Enabled")
-	}
 
 	cleanupFunc := func() {
 		for _, m := range p.MetricsList {

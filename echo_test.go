@@ -86,10 +86,10 @@ func TestEchoEnablePrometheusNoException(t *testing.T) {
 	// inside Promethues library complaining duplicated registration
 	// attempts. This is because Prometheus registration is done in
 	// global namespace.
-	e, cleanup := NewWebAppBuilder("BartonTest").
-		EnableHMACJWT(c).
-		NewEcho()
+	e, cleanup := NewWebAppBuilder("BartonTest").NewEcho()
 	defer cleanup()
+
+	e.Use(c.NewEchoMiddleware())
 
 	// Prometheus path /metrics is also protected.
 	w := httptest.NewRecorder()
