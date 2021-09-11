@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/rs/zerolog/log"
@@ -19,6 +19,7 @@ type HMACJWTConfig struct {
 	// gain ability to test a failed case in UT. Is it a good
 	// choice. (see unit test: TestEchoJWTGenFailure)
 	signingKey interface{}
+	contextKey string
 }
 
 // NewHMACJWTConfig creates a new configuration object to generate JWT
@@ -27,6 +28,7 @@ func NewHMACJWTConfig(signingKey []byte) *HMACJWTConfig {
 	return &HMACJWTConfig{
 		signingMethod: "HS256",
 		signingKey:    signingKey,
+		contextKey:    "user", // Keep compatibility with Echo.
 	}
 }
 
@@ -44,6 +46,13 @@ func (c *HMACJWTConfig) SigningMethod(method string) *HMACJWTConfig {
 	return c
 }
 
+// ContextKey specifies the key name we use to lookup token object in
+// echo's Context object.
+func (c *HMACJWTConfig) ContextKey(keyName string) *HMACJWTConfig {
+	c.contextKey = keyName
+	return c
+}
+
 // NewEchoMiddleware returns a token validation middleware for Labstack
 // Echo framework.
 func (c *HMACJWTConfig) NewEchoMiddleware() echo.MiddlewareFunc {
@@ -52,6 +61,7 @@ func (c *HMACJWTConfig) NewEchoMiddleware() echo.MiddlewareFunc {
 		AuthScheme:    "Bearer",
 		SigningMethod: c.signingMethod,
 		SigningKey:    c.signingKey,
+		ContextKey:    c.contextKey,
 		// TODO By reading JWT Library code I see a lot of
 		// reflection-based method to parse token. Not sure
 		// whether it will be be a bottleneck. Will do

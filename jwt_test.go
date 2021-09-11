@@ -13,12 +13,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt"
 	"github.com/labstack/echo/v4"
 	"github.com/shaj13/go-guardian/v2/auth"
 	"github.com/shaj13/go-guardian/v2/auth/strategies/basic"
-	"github.com/shaj13/libcache"
-	_ "github.com/shaj13/libcache/fifo"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -157,12 +155,24 @@ func validate(ctx context.Context, r *http.Request,
 }
 
 func newBasicAuthPolicy() *JWTGenPolicy {
-	cache := libcache.FIFO.New(0)
-	cache.SetTTL(time.Minute * 5)
-	cache.RegisterOnExpired(func(key, _ interface{}) {
-		cache.Peek(key)
-	})
-	strategy := basic.NewCached(validate, cache)
+	// For simplicity reason, we don't use cached version. Please
+	// refer to https://github.com/shaj13/go-guardian and see
+	// _example/basic/main.go for a start.
+	//
+	// NOTE: Don't forget to register global replacement policy
+	// function for fifo, or we will see a runtime panic.
+	//     import _ "github.com/shaj13/libcache/fifo"
+	//
+	// Code sample below:
+	// cache := libcache.FIFO.New(0)
+	// cache.SetTTL(time.Minute * 5)
+	// cache.RegisterOnExpired(func(key, _ interface{}) {
+	//	cache.Peek(key)
+	// })
+	// strategy := basic.NewCached(validate, cache)
+	// return NewJWTPolicy(strategy)
+
+	strategy := basic.New(validate)
 	return NewJWTPolicy(strategy)
 }
 
@@ -180,7 +190,11 @@ type Message struct {
 	Msg string `json:"msg"`
 }
 
-func TestEchoReturnJWTToken(t *testing.T) {
+// TestEchoJWTLoginHandler tests default login Handler can be used to
+// generate JWT token, with a basic authentication login handler. Note
+// that the basic auth username and password are sent via Authorization
+// header with Basic prefix.
+func TestEchoJWTLoginHandler(t *testing.T) {
 	buf := bytes.NewBufferString("")
 	zc := NewZerologConfig().SetWriter(buf).UseUTCTime()
 	zc.SetGlobalPolicy().SetGlobalLogger()
@@ -261,6 +275,13 @@ func TestEchoReturnJWTToken(t *testing.T) {
 	assert.Equal(t, "hello!", string(answer))
 }
 
+// TestEchoReturnJWTTokenCustomizedLogs tests a customized log line is
+// printed, when a JWT token is generated successfully. The log line is
+// customized via TokenGrantedLogMsg(). When the log line is printed,
+// the user name is also printed in log line.
+//
+// The log text is printed to ensure developers know which log line to
+// search in analytic engine like ElasticSearch.
 func TestEchoReturnJWTTokenCustomizedLogs(t *testing.T) {
 	buf := bytes.NewBufferString("")
 	zc := NewZerologConfig().SetWriter(buf).UseUTCTime()
@@ -320,6 +341,8 @@ func TestEchoReturnJWTTokenCustomizedLogs(t *testing.T) {
 		"\"name\":\"testuser\""))
 }
 
+// TestEchoBadAuthenticationNoLog tests a default log line is not printed
+// on authentication error, when PrintAuthFailLog() is set to false.
 func TestEchoBadAuthenticationNoLog(t *testing.T) {
 	buf := bytes.NewBufferString("")
 	zc := NewZerologConfig().SetWriter(buf).UseUTCTime()
@@ -359,6 +382,10 @@ func TestEchoBadAuthenticationNoLog(t *testing.T) {
 		"Authenticate.Fail"))
 }
 
+// TestEchoBadAuthenticationPrintLog tests a default log line is printed
+// on authentication error, when PrintAuthFailLog() is set to true.
+// The log text is printed to ensure developers know which log line to
+// search in analytic engine like ElasticSearch.
 func TestEchoBadAuthenticationPrintLog(t *testing.T) {
 	buf := bytes.NewBufferString("")
 	zc := NewZerologConfig().SetWriter(buf).UseUTCTime()
@@ -398,6 +425,11 @@ func TestEchoBadAuthenticationPrintLog(t *testing.T) {
 		"Authenticate.Fail"))
 }
 
+// TestEchoBadAuthenticationPrintCustomizedLog tests an customized error
+// log line can be specified by AuthFailLogMsg() API, printed on
+// authenticaion error. The log text is configurable to ensure
+// developers know which log line to search in analytic engine like
+// ElasticSearch.
 func TestEchoBadAuthenticationPrintCustomizedLog(t *testing.T) {
 	buf := bytes.NewBufferString("")
 	zc := NewZerologConfig().SetWriter(buf).UseUTCTime()
@@ -438,6 +470,10 @@ func TestEchoBadAuthenticationPrintCustomizedLog(t *testing.T) {
 	assert.True(t, strings.Contains(buf.String(), "Don't Panic!"))
 }
 
+// TestEchoReturnJWTTokenWithShorterExpireSpan test a sceanrio that an
+// expired JWT token can't be used to access API. It's done by
+// intentionally set an ExpireSpan configuration to always generate a
+// token with expiration time span set to 1 hour ago.
 func TestEchoReturnJWTTokenWithShorterExpireSpan(t *testing.T) {
 	buf := bytes.NewBufferString("")
 	zc := NewZerologConfig().SetWriter(buf).UseUTCTime()
@@ -516,6 +552,10 @@ func TestEchoReturnJWTTokenWithShorterExpireSpan(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 }
 
+// TestEchoJWTGenFailure intentionally triggers an internal key signing
+// error by force assigning SigningKey to 1 instead byte string. In this
+// context, an error log with name Sign.JWT.Token.Fail is printed and
+// http code 500 is returned.
 func TestEchoJWTGenFailure(t *testing.T) {
 	buf := bytes.NewBufferString("")
 	zc := NewZerologConfig().SetWriter(buf).UseUTCTime()
@@ -558,4 +598,82 @@ func TestEchoJWTGenFailure(t *testing.T) {
 	// Log is printed to support ElasticSearch query
 	assert.True(t, strings.Contains(buf.String(),
 		"Sign.JWT.Token.Fail"))
+}
+
+// TestEchoLookupJWTTokenFromContext demonstrates how to receive user
+// name from JWT token stored in context, with default lookup key name
+// as "user".
+func TestEchoLookupJWTTokenFromContext(t *testing.T) {
+	testKey := []byte("test123")
+	c := NewHMACJWTConfig(testKey).SigningMethod("HS384")
+	token, err := c.token(time.Now().Add(time.Hour*1).Unix(), "tu")
+	assert.Nil(t, err)
+
+	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	defer cleanup()
+
+	e.Use(c.NewEchoMiddleware())
+	e.GET("/hello", func(c echo.Context) error {
+		user, ok := c.Get("user").(*jwt.Token)
+		assert.True(t, ok)
+		claims, ok := user.Claims.(jwt.MapClaims)
+		assert.True(t, ok)
+		assert.Equal(t, "tu", claims["name"])
+		return c.String(http.StatusOK, "hello!")
+	})
+
+	// Received token can be used to call APIs.
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/hello", nil)
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+
+	e.ServeHTTP(w, req)
+	resp := w.Result()
+	defer resp.Body.Close()
+
+	answer, err := ioutil.ReadAll(resp.Body)
+	assert.Nil(t, err)
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Equal(t, "hello!", string(answer))
+}
+
+// TestEchoLookupJWTTokenFromContextWithCustomizedKey demonstrates
+// how to receive user name from JWT token stored in context, while
+// the lookup key name in context is customized.
+func TestEchoLookupJWTTokenFromContextWithCustomizedKey(t *testing.T) {
+	testKey := []byte("test123")
+	c := NewHMACJWTConfig(testKey).
+		SigningMethod("HS384").
+		ContextKey("context-key")
+	token, err := c.token(time.Now().Add(time.Hour*1).Unix(), "tu2")
+	assert.Nil(t, err)
+
+	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	defer cleanup()
+
+	e.Use(c.NewEchoMiddleware())
+	e.GET("/hello", func(c echo.Context) error {
+		user, ok := c.Get("context-key").(*jwt.Token)
+		assert.True(t, ok)
+		claims, ok := user.Claims.(jwt.MapClaims)
+		assert.True(t, ok)
+		assert.Equal(t, "tu2", claims["name"])
+		return c.String(http.StatusOK, "hello!")
+	})
+
+	// Received token can be used to call APIs.
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/hello", nil)
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+
+	e.ServeHTTP(w, req)
+	resp := w.Result()
+	defer resp.Body.Close()
+
+	answer, err := ioutil.ReadAll(resp.Body)
+	assert.Nil(t, err)
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Equal(t, "hello!", string(answer))
 }
