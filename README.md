@@ -77,8 +77,10 @@ func main() {
 
 	// Create Echo app with Prometheus enabled.
 	// JWT token authentication is enabled explicitly.
-	e, cleanup := barton.NewWebAppBuilder("MyAPI").EnableHMACJWT(c).NewEcho()
+	e, cleanup := barton.NewWebAppBuilder("MyAPI").NewEcho()
 	defer cleanup()
+
+	e.Use(c.NewEchoMiddleware()) // API /test is under protection.
 
 	e.GET("/test", func(c echo.Context) error {
 		return c.String(http.StatusOK, "hello!")
@@ -91,6 +93,15 @@ func main() {
 ```
 
 ## Changelog
+
+### v0.2.0
+
+* [X] A login handler based on https://github.com/shaj13/go-guardian.
+* [X] Support basic-auth login. See UT as demonstration.
+* [ ] Support form-based login. Provide a go-guardian's Strategy interface.
+* [X] Customizable log-line on JWT generation and authentication failure.
+* [ ] Prometheus counter for JWT generation and authentication failure.
+* [ ] A login command line handler based on https://github.com/spf13/cobra.
 
 ### v0.1.0
 
