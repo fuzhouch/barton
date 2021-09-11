@@ -8,26 +8,32 @@ include:
 * Web framework, via [Echo](https://github.com/labstack/echo)
 * Health monitoring, via [Prometheus](https://prometheus.io)
 * Structural logs, via [Zerolog](https://github.com/rs/zerolog)
-* Authentication, via [JWT](https://jwt.io)
+* Token access, via [JWT](https://jwt.io)
+* Authentication, via [go-guardian](https://github.com/shaj13/go-guardian)
 
-The goal of Barton is to provide an out-of-box experience for developers,
+The goal of Barton is to provide an "battery included" tool for developers,
 who want to focus on their own business logic, without the needs of
-spending time on library selection or configuration. For this purpose,
-Barton intentionally builds itself upon a set of well known Open Source
-projects, and exposes only a limited configuration options.
+spending time on library exploration or customization. To meet this
+goal, Barton intentionally builds itself upon a set of well known Open
+Source projects, and exposes only a limited configuration options.
 
 Barton is not designed to be a "framework" with maximized flexibility.
 For example, Barton selects [Zerolog](https://github.com/rs/zerolog) as
-structural log implementation, it does not offer adoptions for other 
-famous logging libraries such as [Zap](https://github.com/uber-go/zap)
-or [Logrus](https://github.com/sirupsen/logrus), or even standard log
-module. It does not expose much options either.
+structural logging infrastructure. It does not offer any adoption layer
+for other famous logging libraries such as
+[Zap](https://github.com/uber-go/zap) or
+[Logrus](https://github.com/sirupsen/logrus), or even standard log
+module. It also pre-configures options for
+[Zerolog](https://github.com/rs/zerolog), which forces always writting
+INFO leve logs no matter under development mode or production.
 
-This design decision may prevent some developers from using Barton in
-their projects, but it keeps a minimal wrapper layer in APIs,
-which leads to a clean codebase, easy to understand and optimize.
-For developers who really disagree Barton's dependency selection or
-configuration choice, they could fork the code and modify as they want.
+This design decision is not a preferred way for some developers, who
+want to adopt their favorite libraries as much as possible. Barton
+chooses an carefully chosen set of dependencies, which keep a minimal
+warpper layer and a clean codebase. I believe it makes Barton code easy
+to understand and optimize. For developers who really disagree Barton's
+dependency selection or design choice, just go ahead to fork the code
+and modify as you wish.
 
 ## How to use Barton
 
