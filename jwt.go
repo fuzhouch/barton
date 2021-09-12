@@ -76,11 +76,11 @@ func (c *HMACJWTConfig) NewEchoMiddleware() echo.MiddlewareFunc {
 // being a part of HMACJWTConfig. This is to ensure we leave future
 // flexibility when Barton supports JWT with public/private keys.
 type JWTGenPolicy struct {
-	expireSpan         time.Duration
-	loginStrategy      auth.Strategy
-	authFailLogMsg     string
-	tokenGrantedLogMsg string
-	printAuthFailLog   bool
+	expireSpan        time.Duration
+	loginStrategy     auth.Strategy
+	authFailLogMsg    string
+	tokenIssuedLogMsg string
+	printAuthFailLog  bool
 }
 
 // NewJWTGenPolicy generate a new policy configuration. It specifies
@@ -89,11 +89,11 @@ type JWTGenPolicy struct {
 // generate an Echo handler function.
 func NewJWTGenPolicy(strategy auth.Strategy) *JWTGenPolicy {
 	return &JWTGenPolicy{
-		expireSpan:         time.Hour * 1,
-		loginStrategy:      strategy,
-		authFailLogMsg:     "Authenticate.Fail",
-		tokenGrantedLogMsg: "Authenticate.Success.JWT.Granted",
-		printAuthFailLog:   false,
+		expireSpan:        time.Hour * 1,
+		loginStrategy:     strategy,
+		authFailLogMsg:    "Authenticate.Fail",
+		tokenIssuedLogMsg: "Authenticate.Success.JWT.Issued",
+		printAuthFailLog:  false,
 	}
 }
 
@@ -111,11 +111,11 @@ func (p *JWTGenPolicy) AuthFailLogMsg(msg string) *JWTGenPolicy {
 	return p
 }
 
-// TokenGrantedLogMsg specifies a log line string when a token is
+// TokenIssuedLogMsg specifies a log line string when a token is
 // genearted successfully. This message is designed to use when
 // developers search failure message from ElasticSearch or Splunk.
-func (p *JWTGenPolicy) TokenGrantedLogMsg(msg string) *JWTGenPolicy {
-	p.tokenGrantedLogMsg = msg
+func (p *JWTGenPolicy) TokenIssuedLogMsg(msg string) *JWTGenPolicy {
+	p.tokenIssuedLogMsg = msg
 	return p
 }
 

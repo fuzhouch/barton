@@ -111,7 +111,7 @@ func (c *appConfig) NewEchoLoginHandler(hc *HMACJWTConfig,
 		log.Info().
 			Str("name", username).
 			Int64("exp", expireTime).
-			Msg(p.tokenGrantedLogMsg)
+			Msg(p.tokenIssuedLogMsg)
 		t := tokenBody{Token: tokenStr, Expire: expireTime}
 		return c.JSON(http.StatusOK, t)
 	}

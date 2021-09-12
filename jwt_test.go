@@ -256,7 +256,7 @@ func TestEchoJWTLoginHandler(t *testing.T) {
 
 	// Log is printed to support ElasticSearch query
 	assert.True(t, strings.Contains(buf.String(),
-		"Authenticate.Success.JWT.Granted"))
+		"Authenticate.Success.JWT.Issued"))
 	assert.True(t, strings.Contains(buf.String(),
 		"\"name\":\"testuser\""))
 
@@ -279,7 +279,7 @@ func TestEchoJWTLoginHandler(t *testing.T) {
 
 // TestEchoReturnJWTTokenCustomizedLogs tests a customized log line is
 // printed, when a JWT token is generated successfully. The log line is
-// customized via TokenGrantedLogMsg(). When the log line is printed,
+// customized via TokenIssuedLogMsg(). When the log line is printed,
 // the user name is also printed in log line.
 //
 // The log text is printed to ensure developers know which log line to
@@ -296,7 +296,7 @@ func TestEchoReturnJWTTokenCustomizedLogs(t *testing.T) {
 	e, cleanup := b.NewEcho()
 	defer cleanup()
 
-	p := newBasicAuthPolicy().TokenGrantedLogMsg("Bravo!")
+	p := newBasicAuthPolicy().TokenIssuedLogMsg("Bravo!")
 	e.POST("/login", b.NewEchoLoginHandler(c, p))
 
 	// Let's get token first.
@@ -542,7 +542,7 @@ func TestEchoReturnJWTTokenWithShorterExpireSpan(t *testing.T) {
 
 	// Log is printed to support ElasticSearch query
 	assert.True(t, strings.Contains(buf.String(),
-		"Authenticate.Success.JWT.Granted"))
+		"Authenticate.Success.JWT.Issued"))
 	assert.True(t, strings.Contains(buf.String(),
 		"\"name\":\"testuser\""))
 
