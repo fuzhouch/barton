@@ -1,6 +1,9 @@
 package barton
 
 import (
+	"net/http"
+	"time"
+
 	"github.com/labstack/echo-contrib/prometheus"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -55,4 +58,39 @@ func (c *appConfig) NewEcho() (*echo.Echo, func()) {
 		}
 	}
 	return e, cleanupFunc
+}
+
+// NewEchoLoginHandler create an Labstack Echo framework handler.
+func (c *appConfig) NewEchoLoginHandler(
+	hc *HMACJWTConfig, p *JWTGenPolicy) echo.HandlerFunc {
+
+	// Register Prometheus counters
+
+	return func(c echo.Context) error {
+		r := c.Request()
+		user, err := p.loginStrategy.Authenticate(r.Context(), r)
+		if err != nil {
+			if p.printAuthFailLog {
+				log.Error().
+					Err(err).
+					Msg(p.authFailLogMsg)
+			}
+			return c.String(http.StatusUnauthorized,
+				"{\"msg\":\"Bad username or password\"}")
+		}
+		username := user.GetUserName()
+		expireTime := time.Now().Add(p.expireSpan).Unix()
+		tokenStr, err := hc.token(expireTime, username)
+		if err != nil {
+			log.Error().Err(err).Msg("Sign.JWT.Token.Fail")
+			return c.String(http.StatusInternalServerError,
+				"{\"msg\":\"Failed to generate JWT token\"}")
+		}
+		log.Info().
+			Str("name", username).
+			Int64("exp", expireTime).
+			Msg(p.tokenGrantedLogMsg)
+		t := tokenBody{Token: tokenStr, Expire: expireTime}
+		return c.JSON(http.StatusOK, t)
+	}
 }

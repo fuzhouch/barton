@@ -202,7 +202,8 @@ func TestEchoJWTLoginHandler(t *testing.T) {
 	testKey := []byte("test123")
 	c := NewHMACJWTConfig(testKey).SigningMethod("HS384")
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	b := NewWebAppBuilder("JWTTest")
+	e, cleanup := b.NewEcho()
 	defer cleanup()
 
 	g := e.Group("/v1", c.NewEchoMiddleware())
@@ -211,7 +212,7 @@ func TestEchoJWTLoginHandler(t *testing.T) {
 	})
 
 	p := newBasicAuthPolicy()
-	e.POST("/login", c.NewEchoLoginHandler(p))
+	e.POST("/login", b.NewEchoLoginHandler(c, p))
 
 	// Let's get token first.
 	w := httptest.NewRecorder()
@@ -290,11 +291,12 @@ func TestEchoReturnJWTTokenCustomizedLogs(t *testing.T) {
 	testKey := []byte("test123")
 	c := NewHMACJWTConfig(testKey).SigningMethod("HS384")
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	b := NewWebAppBuilder("JWTTest")
+	e, cleanup := b.NewEcho()
 	defer cleanup()
 
 	p := newBasicAuthPolicy().TokenGrantedLogMsg("Bravo!")
-	e.POST("/login", c.NewEchoLoginHandler(p))
+	e.POST("/login", b.NewEchoLoginHandler(c, p))
 
 	// Let's get token first.
 	w := httptest.NewRecorder()
@@ -351,11 +353,12 @@ func TestEchoBadAuthenticationNoLog(t *testing.T) {
 	testKey := []byte("test123")
 	c := NewHMACJWTConfig(testKey).SigningMethod("HS256")
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	b := NewWebAppBuilder("JWTTest")
+	e, cleanup := b.NewEcho()
 	defer cleanup()
 
 	p := newBasicAuthPolicy()
-	e.POST("/login", c.NewEchoLoginHandler(p))
+	e.POST("/login", b.NewEchoLoginHandler(c, p))
 
 	// Intentionally try to login with a bad password
 	w := httptest.NewRecorder()
@@ -394,11 +397,12 @@ func TestEchoBadAuthenticationPrintLog(t *testing.T) {
 	testKey := []byte("test123")
 	c := NewHMACJWTConfig(testKey).SigningMethod("HS256")
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	b := NewWebAppBuilder("JWTTest")
+	e, cleanup := b.NewEcho()
 	defer cleanup()
 
 	p := newBasicAuthPolicy().PrintAuthFailLog(true)
-	e.POST("/login", c.NewEchoLoginHandler(p))
+	e.POST("/login", b.NewEchoLoginHandler(c, p))
 
 	// Intentionally try to login with a bad password
 	w := httptest.NewRecorder()
@@ -438,13 +442,14 @@ func TestEchoBadAuthenticationPrintCustomizedLog(t *testing.T) {
 	testKey := []byte("test123")
 	c := NewHMACJWTConfig(testKey).SigningMethod("HS256")
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	b := NewWebAppBuilder("JWTTest")
+	e, cleanup := b.NewEcho()
 	defer cleanup()
 
 	p := newBasicAuthPolicy().
 		AuthFailLogMsg("Don't Panic!").
 		PrintAuthFailLog(true)
-	e.POST("/login", c.NewEchoLoginHandler(p))
+	e.POST("/login", b.NewEchoLoginHandler(c, p))
 
 	// Intentionally try to login with a bad password
 	w := httptest.NewRecorder()
@@ -482,7 +487,8 @@ func TestEchoReturnJWTTokenWithShorterExpireSpan(t *testing.T) {
 	testKey := []byte("test123")
 	c := NewHMACJWTConfig(testKey).SigningMethod("HS384")
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	b := NewWebAppBuilder("JWTTest")
+	e, cleanup := b.NewEcho()
 	defer cleanup()
 
 	g := e.Group("/v1", c.NewEchoMiddleware())
@@ -492,7 +498,7 @@ func TestEchoReturnJWTTokenWithShorterExpireSpan(t *testing.T) {
 
 	// Always return expired token
 	p := newBasicAuthPolicy().ExpireSpan(time.Hour * -1)
-	e.POST("/login", c.NewEchoLoginHandler(p))
+	e.POST("/login", b.NewEchoLoginHandler(c, p))
 
 	// Let's get token first.
 	w := httptest.NewRecorder()
@@ -564,11 +570,12 @@ func TestEchoJWTGenFailure(t *testing.T) {
 	testKey := []byte("key123") // Empty key causes signing falure
 	c := NewHMACJWTConfig(testKey).SigningMethod("HS256")
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	b := NewWebAppBuilder("JWTTest")
+	e, cleanup := b.NewEcho()
 	defer cleanup()
 
 	p := newBasicAuthPolicy()
-	e.POST("/login", c.NewEchoLoginHandler(p))
+	e.POST("/login", b.NewEchoLoginHandler(c, p))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/login", nil)
