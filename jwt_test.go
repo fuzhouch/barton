@@ -203,8 +203,7 @@ func TestEchoJWTLoginHandler(t *testing.T) {
 	testKey := []byte("test123")
 	c := NewHMACJWTConfig(testKey).SigningMethod("HS384")
 
-	b := NewWebAppBuilder("JWTTest")
-	e, cleanup := b.NewEcho()
+	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
 	defer cleanup()
 
 	g := e.Group("/v1", c.NewEchoMiddleware())
@@ -213,7 +212,7 @@ func TestEchoJWTLoginHandler(t *testing.T) {
 	})
 
 	p := newBasicAuthPolicy()
-	e.POST("/login", b.NewEchoLoginHandler(c, p))
+	e.POST("/login", c.NewEchoLoginHandler(p))
 
 	// Let's get token first.
 	w := httptest.NewRecorder()
@@ -292,12 +291,11 @@ func TestEchoReturnJWTTokenCustomizedLogs(t *testing.T) {
 	testKey := []byte("test123")
 	c := NewHMACJWTConfig(testKey).SigningMethod("HS384")
 
-	b := NewWebAppBuilder("JWTTest")
-	e, cleanup := b.NewEcho()
+	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
 	defer cleanup()
 
 	p := newBasicAuthPolicy().TokenIssuedLogMsg("Bravo!")
-	e.POST("/login", b.NewEchoLoginHandler(c, p))
+	e.POST("/login", c.NewEchoLoginHandler(p))
 
 	// Let's get token first.
 	w := httptest.NewRecorder()
@@ -354,12 +352,11 @@ func TestEchoBadAuthenticationNoLog(t *testing.T) {
 	testKey := []byte("test123")
 	c := NewHMACJWTConfig(testKey).SigningMethod("HS256")
 
-	b := NewWebAppBuilder("JWTTest")
-	e, cleanup := b.NewEcho()
+	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
 	defer cleanup()
 
 	p := newBasicAuthPolicy()
-	e.POST("/login", b.NewEchoLoginHandler(c, p))
+	e.POST("/login", c.NewEchoLoginHandler(p))
 
 	// Intentionally try to login with a bad password
 	w := httptest.NewRecorder()
@@ -398,12 +395,11 @@ func TestEchoBadAuthenticationPrintLog(t *testing.T) {
 	testKey := []byte("test123")
 	c := NewHMACJWTConfig(testKey).SigningMethod("HS256")
 
-	b := NewWebAppBuilder("JWTTest")
-	e, cleanup := b.NewEcho()
+	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
 	defer cleanup()
 
 	p := newBasicAuthPolicy().PrintAuthFailLog(true)
-	e.POST("/login", b.NewEchoLoginHandler(c, p))
+	e.POST("/login", c.NewEchoLoginHandler(p))
 
 	// Intentionally try to login with a bad password
 	w := httptest.NewRecorder()
@@ -443,14 +439,13 @@ func TestEchoBadAuthenticationPrintCustomizedLog(t *testing.T) {
 	testKey := []byte("test123")
 	c := NewHMACJWTConfig(testKey).SigningMethod("HS256")
 
-	b := NewWebAppBuilder("JWTTest")
-	e, cleanup := b.NewEcho()
+	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
 	defer cleanup()
 
 	p := newBasicAuthPolicy().
 		AuthFailLogMsg("Don't Panic!").
 		PrintAuthFailLog(true)
-	e.POST("/login", b.NewEchoLoginHandler(c, p))
+	e.POST("/login", c.NewEchoLoginHandler(p))
 
 	// Intentionally try to login with a bad password
 	w := httptest.NewRecorder()
@@ -488,8 +483,7 @@ func TestEchoReturnJWTTokenWithShorterExpireSpan(t *testing.T) {
 	testKey := []byte("test123")
 	c := NewHMACJWTConfig(testKey).SigningMethod("HS384")
 
-	b := NewWebAppBuilder("JWTTest")
-	e, cleanup := b.NewEcho()
+	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
 	defer cleanup()
 
 	g := e.Group("/v1", c.NewEchoMiddleware())
@@ -499,7 +493,7 @@ func TestEchoReturnJWTTokenWithShorterExpireSpan(t *testing.T) {
 
 	// Always return expired token
 	p := newBasicAuthPolicy().ExpireSpan(time.Hour * -1)
-	e.POST("/login", b.NewEchoLoginHandler(c, p))
+	e.POST("/login", c.NewEchoLoginHandler(p))
 
 	// Let's get token first.
 	w := httptest.NewRecorder()
@@ -571,12 +565,11 @@ func TestEchoJWTGenFailure(t *testing.T) {
 	testKey := []byte("key123") // Empty key causes signing falure
 	c := NewHMACJWTConfig(testKey).SigningMethod("HS256")
 
-	b := NewWebAppBuilder("JWTTest")
-	e, cleanup := b.NewEcho()
+	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
 	defer cleanup()
 
 	p := newBasicAuthPolicy()
-	e.POST("/login", b.NewEchoLoginHandler(c, p))
+	e.POST("/login", c.NewEchoLoginHandler(p))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/login", nil)
@@ -687,17 +680,16 @@ func TestEchoLookupJWTTokenFromContextWithCustomizedKey(t *testing.T) {
 }
 
 // TestEchoJWTMetricsDefaultName verifies the metrics name without
-// prefix does not generate additional underscore ('_').
+// prefix always start from Barton_.
 func TestEchoJWTMetricsDefaultName(t *testing.T) {
 	testKey := []byte("key123") // Empty key causes signing falure
 	c := NewHMACJWTConfig(testKey).SigningMethod("HS256")
 
-	b := NewWebAppBuilder("JWTTest")
-	e, cleanup := b.NewEcho()
+	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
 	defer cleanup()
 
 	p := newBasicAuthPolicy()
-	e.POST("/login", b.NewEchoLoginHandler(c, p)) // No prefix!
+	e.POST("/login", c.NewEchoLoginHandler(p)) // No prefix!
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/login", nil)
@@ -734,7 +726,7 @@ func TestEchoJWTMetricsDefaultName(t *testing.T) {
 	response := w.Result()
 	body, _ := io.ReadAll(response.Body)
 	assert.True(t, strings.Contains(string(body),
-		"JWTTest_jwt_internal_error_count 1"))
+		"Barton_jwt_internal_error_count 1"))
 }
 
 // TestEchoJWTMetricsCustomizedName verifies the metrics for internal
@@ -743,12 +735,11 @@ func TestEchoJWTMetricsCustomizedName(t *testing.T) {
 	testKey := []byte("key123") // Empty key causes signing falure
 	c := NewHMACJWTConfig(testKey).SigningMethod("HS256")
 
-	b := NewWebAppBuilder("JWTTest")
-	e, cleanup := b.NewEcho()
+	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
 	defer cleanup()
 
 	p := newBasicAuthPolicy()
-	e.POST("/login", b.NewEchoLoginHandler(c, p, "defaultLogin"))
+	e.POST("/login", c.NewEchoLoginHandler(p, "defaultLogin"))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/login", nil)
@@ -785,7 +776,7 @@ func TestEchoJWTMetricsCustomizedName(t *testing.T) {
 	response := w.Result()
 	body, _ := io.ReadAll(response.Body)
 	assert.True(t, strings.Contains(string(body),
-		"JWTTest_defaultLogin_jwt_internal_error_count 1"))
+		"defaultLogin_jwt_internal_error_count 1"))
 }
 
 // TestEchoJWTMetricsMultiplePrefixTakeOne verifies when multiple prefix
@@ -799,12 +790,11 @@ func TestEchoJWTMetricsMultiplePrefixTakeOne(t *testing.T) {
 	testKey := []byte("key123") // Empty key causes signing falure
 	c := NewHMACJWTConfig(testKey).SigningMethod("HS256")
 
-	b := NewWebAppBuilder("JWTTest")
-	e, cleanup := b.NewEcho()
+	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
 	defer cleanup()
 
 	p := newBasicAuthPolicy()
-	e.POST("/login", b.NewEchoLoginHandler(c, p,
+	e.POST("/login", c.NewEchoLoginHandler(p,
 		"defaultLogin2", "skipped"))
 
 	w := httptest.NewRecorder()
@@ -832,7 +822,7 @@ func TestEchoJWTMetricsMultiplePrefixTakeOne(t *testing.T) {
 	response := w.Result()
 	body, _ := io.ReadAll(response.Body)
 	assert.True(t, strings.Contains(string(body),
-		"JWTTest_defaultLogin2_jwt_issued_count 1"))
+		"defaultLogin2_jwt_issued_count 1"))
 
 	// Check log line is printed successfully.
 	assert.True(t, strings.Contains(buf.String(),
@@ -849,12 +839,11 @@ func TestEchoJWTMetricsFailedMetrics(t *testing.T) {
 	testKey := []byte("key123") // Empty key causes signing falure
 	c := NewHMACJWTConfig(testKey).SigningMethod("HS256")
 
-	b := NewWebAppBuilder("JWTTest")
-	e, cleanup := b.NewEcho()
+	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
 	defer cleanup()
 
 	p := newBasicAuthPolicy()
-	e.POST("/login", b.NewEchoLoginHandler(c, p, "defaultLoginS"))
+	e.POST("/login", c.NewEchoLoginHandler(p, "defaultLoginS"))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/login", nil)
@@ -881,7 +870,7 @@ func TestEchoJWTMetricsFailedMetrics(t *testing.T) {
 	response := w.Result()
 	body, _ := io.ReadAll(response.Body)
 	assert.True(t, strings.Contains(string(body),
-		"JWTTest_defaultLoginS_jwt_failed_auth_count 1"))
+		"defaultLoginS_jwt_failed_auth_count 1"))
 }
 
 // TestEchoJWTMetricsMultipleHandlers verifies multiple login handlers
@@ -895,13 +884,12 @@ func TestEchoJWTMetricsMultipleHandlers(t *testing.T) {
 	testKey := []byte("key123") // Empty key causes signing falure
 	c := NewHMACJWTConfig(testKey).SigningMethod("HS256")
 
-	b := NewWebAppBuilder("JWTTest")
-	e, cleanup := b.NewEcho()
+	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
 	defer cleanup()
 
 	p := newBasicAuthPolicy()
-	e.POST("/login1", b.NewEchoLoginHandler(c, p, "login1"))
-	e.POST("/login2", b.NewEchoLoginHandler(c, p, "login2"))
+	e.POST("/login1", c.NewEchoLoginHandler(p, "login1"))
+	e.POST("/login2", c.NewEchoLoginHandler(p, "login2"))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/login1", nil)
@@ -942,13 +930,13 @@ func TestEchoJWTMetricsMultipleHandlers(t *testing.T) {
 	response := w.Result()
 	body, _ := io.ReadAll(response.Body)
 	assert.True(t, strings.Contains(string(body),
-		"JWTTest_login1_jwt_failed_auth_count 1"))
+		"login1_jwt_failed_auth_count 1"))
 	assert.True(t, strings.Contains(string(body),
-		"JWTTest_login1_jwt_issued_count 0"))
+		"login1_jwt_issued_count 0"))
 	assert.True(t, strings.Contains(string(body),
-		"JWTTest_login2_jwt_issued_count 1"))
+		"login2_jwt_issued_count 1"))
 	assert.True(t, strings.Contains(string(body),
-		"JWTTest_login2_jwt_failed_auth_count 0"))
+		"login2_jwt_failed_auth_count 0"))
 
 	// Note: it also tests globalCleanup() function here as it does
 	// not creash.

@@ -1,11 +1,13 @@
 package barton
 
 import (
+	"net/http"
 	"time"
 
 	"github.com/golang-jwt/jwt"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/rs/zerolog/log"
 	"github.com/shaj13/go-guardian/v2/auth"
 )
 
@@ -148,4 +150,62 @@ func (c *HMACJWTConfig) token(exp int64, name string) (string, error) {
 type tokenBody struct {
 	Token  string `json:"jwt"`
 	Expire int64  `json:"expire_unix_epoch"`
+}
+
+// NewEchoLoginHandler create an Labstack Echo framework handler.
+func (hc *HMACJWTConfig) NewEchoLoginHandler(p *JWTGenPolicy,
+	handlerIdentifier ...string) echo.HandlerFunc {
+
+	effectivePrefix := ""
+	if len(handlerIdentifier) > 1 {
+		effectivePrefix = handlerIdentifier[0]
+		log.Warn().
+			Str("Prefix", effectivePrefix).
+			Msg("HandlerIdentifier.TakeFirstOne")
+	} else if len(handlerIdentifier) == 1 {
+		effectivePrefix = handlerIdentifier[0]
+	} else if len(handlerIdentifier) == 0 {
+		effectivePrefix = "Barton"
+	}
+
+	// Register Prometheus counters
+	m := registerLoginMetrics(effectivePrefix)
+
+	return func(c echo.Context) error {
+		r := c.Request()
+		user, err := p.loginStrategy.Authenticate(r.Context(), r)
+		if err != nil {
+			// The log is not printed by default, with
+			// purpose that we intentinally avoid log
+			// flooding when a bad guy generates huge number
+			// of traffic. However, counter is always
+			// increasing.
+			m.jwtFailedAuthCount.Inc()
+			if p.printAuthFailLog {
+				log.Error().
+					Err(err).
+					Msg(p.authFailLogMsg)
+			}
+			return c.String(http.StatusUnauthorized,
+				"{\"msg\":\"Bad username or password\"}")
+		}
+
+		username := user.GetUserName()
+		expireTime := time.Now().Add(p.expireSpan).Unix()
+		tokenStr, err := hc.token(expireTime, username)
+		if err != nil {
+			m.jwtInternalErrorCount.Inc()
+			log.Error().Err(err).Msg("Sign.JWT.Token.Fail")
+			return c.String(http.StatusInternalServerError,
+				"{\"msg\":\"Failed to generate JWT token\"}")
+		}
+
+		m.jwtIssuedCount.Inc()
+		log.Info().
+			Str("name", username).
+			Int64("exp", expireTime).
+			Msg(p.tokenIssuedLogMsg)
+		t := tokenBody{Token: tokenStr, Expire: expireTime}
+		return c.JSON(http.StatusOK, t)
+	}
 }

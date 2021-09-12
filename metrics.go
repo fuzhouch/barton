@@ -18,42 +18,32 @@ type loginMetricsNames struct {
 	jwtInternalErrorCount prometheus.Counter
 }
 
-func registerLoginMetrics(appName, prefix string) *loginMetricsNames {
+func registerLoginMetrics(prefix string) *loginMetricsNames {
 	// Three metrics are exposed:
-	// <appName>_<prefix>_jwt_issued_count
-	// <appName>_<prefix>_jwt_failed_auth_count
-	// <appName>_<prefix>_jwt_internal_error_count
+	// <prefix>_jwt_issued_count
+	// <prefix>_jwt_failed_auth_count
+	// <prefix>_jwt_internal_error_count
 
-	p := ""
-	if len(prefix) == 0 {
-		p = ""
-	} else {
-		p = fmt.Sprintf("_%s", prefix)
-	}
-
-	issuedCountName := fmt.Sprintf("%s%s_jwt_issued_count",
-		appName, p)
-	failedAuthName := fmt.Sprintf("%s%s_jwt_failed_auth_count",
-		appName, p)
-	internalErrorName := fmt.Sprintf("%s%s_jwt_internal_error_count",
-		appName, p)
+	issuedCountName := fmt.Sprintf("%s_jwt_issued_count", prefix)
+	failedAuthName := fmt.Sprintf("%s_jwt_failed_auth_count", prefix)
+	internalErrorName := fmt.Sprintf("%s_jwt_internal_error_count", prefix)
 
 	jwtIssuedCount := prometheus.NewCounter(prometheus.CounterOpts{
 		Name: issuedCountName,
-		Help: fmt.Sprintf("Count of JWT token issued, for %s%s.",
-			appName, p),
+		Help: fmt.Sprintf("Count of JWT token issued, for %s.",
+			prefix),
 	})
 
 	jwtFailedAuthCount := prometheus.NewCounter(prometheus.CounterOpts{
 		Name: failedAuthName,
-		Help: fmt.Sprintf("Count of auth failure when requesting JWT token, for %s%s.",
-			appName, p),
+		Help: fmt.Sprintf("Count of auth failure when requesting JWT token, for %s.",
+			prefix),
 	})
 
 	jwtInternalErrorCount := prometheus.NewCounter(prometheus.CounterOpts{
 		Name: internalErrorName,
-		Help: fmt.Sprintf("Count of internal error requesting JWT token, for %s%s.",
-			appName, p),
+		Help: fmt.Sprintf("Count of internal error requesting JWT token, for %s.",
+			prefix),
 	})
 
 	// A counter with duplicated names will break here.
