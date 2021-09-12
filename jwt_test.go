@@ -170,10 +170,10 @@ func newBasicAuthPolicy() *JWTGenPolicy {
 	//	cache.Peek(key)
 	// })
 	// strategy := basic.NewCached(validate, cache)
-	// return NewJWTPolicy(strategy)
+	// return NewJWTGenPolicy(strategy)
 
 	strategy := basic.New(validate)
-	return NewJWTPolicy(strategy)
+	return NewJWTGenPolicy(strategy)
 }
 
 type Header struct {

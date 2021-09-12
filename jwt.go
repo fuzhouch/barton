@@ -85,11 +85,11 @@ type JWTGenPolicy struct {
 	printAuthFailLog   bool
 }
 
-// NewJWTPolicy generate a new policy configuration. It specifies
+// NewJWTGenPolicy generate a new policy configuration. It specifies
 // behaviors like token expiration time and authentication methods. The
 // policy is passed to HMACJWTConfig.NewEchoLoginHandler() method to
 // generate an Echo handler function.
-func NewJWTPolicy(strategy auth.Strategy) *JWTGenPolicy {
+func NewJWTGenPolicy(strategy auth.Strategy) *JWTGenPolicy {
 	return &JWTGenPolicy{
 		expireSpan:         time.Hour * 1,
 		loginStrategy:      strategy,
