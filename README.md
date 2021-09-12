@@ -106,7 +106,7 @@ func main() {
 * [X] Support basic-auth login. See UT as demonstration.
 * [ ] Support form-based login. Provide a go-guardian's Strategy interface.
 * [X] Customizable log-line on JWT generation and authentication failure.
-* [ ] Prometheus counter for JWT generation and authentication failure.
+* [X] Prometheus counter for JWT generation and authentication failure.
 * [ ] A login command line handler based on https://github.com/spf13/cobra.
 
 ### v0.1.0
