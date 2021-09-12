@@ -40,7 +40,6 @@ func TestEchoNameChange(t *testing.T) {
 		t.Errorf("PrometheusMetricsNotFound:response=%s", body)
 		return
 	}
-
 }
 
 func TestEchoPrometheusIntegration(t *testing.T) {

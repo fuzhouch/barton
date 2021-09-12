@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -683,4 +684,272 @@ func TestEchoLookupJWTTokenFromContextWithCustomizedKey(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Equal(t, "hello!", string(answer))
+}
+
+// TestEchoJWTMetricsDefaultName verifies the metrics name without
+// prefix does not generate additional underscore ('_').
+func TestEchoJWTMetricsDefaultName(t *testing.T) {
+	testKey := []byte("key123") // Empty key causes signing falure
+	c := NewHMACJWTConfig(testKey).SigningMethod("HS256")
+
+	b := NewWebAppBuilder("JWTTest")
+	e, cleanup := b.NewEcho()
+	defer cleanup()
+
+	p := newBasicAuthPolicy()
+	e.POST("/login", b.NewEchoLoginHandler(c, p)) // No prefix!
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/login", nil)
+	cred := []byte("testuser:testpwd")
+	req.Header.Set("Authorization",
+		fmt.Sprintf("Basic %s",
+			base64.StdEncoding.EncodeToString(cred)))
+
+	// Pass an signing key with invalid value (should be []byte, now
+	// we set it to integer) can trigger failed JWT token signing.
+	// No worry for breaking interface. In public library we use
+	// SigningKey() method which still enforce []byte as input type.
+	c.signingKey = 1
+
+	e.ServeHTTP(w, req)
+	resp := w.Result()
+	defer resp.Body.Close()
+
+	answer, err := ioutil.ReadAll(resp.Body)
+	assert.Nil(t, err)
+
+	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+	msg := Message{}
+	json.Unmarshal(answer, &msg)
+	assert.Equal(t, "Failed to generate JWT token", msg.Msg)
+
+	// Read metrics: supposed a metrics called
+	// JWTTest_defaultLogin_jwt_internal_error_count is set to 1
+	w = httptest.NewRecorder()
+	req = httptest.NewRequest("GET", "/metrics", nil)
+	req.Header.Set("User-Agent", "Golang_UT")
+	e.ServeHTTP(w, req)
+
+	response := w.Result()
+	body, _ := io.ReadAll(response.Body)
+	assert.True(t, strings.Contains(string(body),
+		"JWTTest_jwt_internal_error_count 1"))
+}
+
+// TestEchoJWTMetricsCustomizedName verifies the metrics for internal
+// auth error can be printed.
+func TestEchoJWTMetricsCustomizedName(t *testing.T) {
+	testKey := []byte("key123") // Empty key causes signing falure
+	c := NewHMACJWTConfig(testKey).SigningMethod("HS256")
+
+	b := NewWebAppBuilder("JWTTest")
+	e, cleanup := b.NewEcho()
+	defer cleanup()
+
+	p := newBasicAuthPolicy()
+	e.POST("/login", b.NewEchoLoginHandler(c, p, "defaultLogin"))
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/login", nil)
+	cred := []byte("testuser:testpwd")
+	req.Header.Set("Authorization",
+		fmt.Sprintf("Basic %s",
+			base64.StdEncoding.EncodeToString(cred)))
+
+	// Pass an signing key with invalid value (should be []byte, now
+	// we set it to integer) can trigger failed JWT token signing.
+	// No worry for breaking interface. In public library we use
+	// SigningKey() method which still enforce []byte as input type.
+	c.signingKey = 1
+
+	e.ServeHTTP(w, req)
+	resp := w.Result()
+	defer resp.Body.Close()
+
+	answer, err := ioutil.ReadAll(resp.Body)
+	assert.Nil(t, err)
+
+	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+	msg := Message{}
+	json.Unmarshal(answer, &msg)
+	assert.Equal(t, "Failed to generate JWT token", msg.Msg)
+
+	// Read metrics: supposed a metrics called
+	// JWTTest_defaultLogin_jwt_internal_error_count is set to 1
+	w = httptest.NewRecorder()
+	req = httptest.NewRequest("GET", "/metrics", nil)
+	req.Header.Set("User-Agent", "Golang_UT")
+	e.ServeHTTP(w, req)
+
+	response := w.Result()
+	body, _ := io.ReadAll(response.Body)
+	assert.True(t, strings.Contains(string(body),
+		"JWTTest_defaultLogin_jwt_internal_error_count 1"))
+}
+
+// TestEchoJWTMetricsMultiplePrefixTakeOne verifies when multiple prefix
+// is specified in NewEchoLoginHandler(), only the first prefix is
+// taken, the others are ignored.
+func TestEchoJWTMetricsMultiplePrefixTakeOne(t *testing.T) {
+	buf := bytes.NewBufferString("")
+	zc := NewZerologConfig().SetWriter(buf).UseUTCTime()
+	zc.SetGlobalPolicy().SetGlobalLogger()
+
+	testKey := []byte("key123") // Empty key causes signing falure
+	c := NewHMACJWTConfig(testKey).SigningMethod("HS256")
+
+	b := NewWebAppBuilder("JWTTest")
+	e, cleanup := b.NewEcho()
+	defer cleanup()
+
+	p := newBasicAuthPolicy()
+	e.POST("/login", b.NewEchoLoginHandler(c, p,
+		"defaultLogin2", "skipped"))
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/login", nil)
+	cred := []byte("testuser:testpwd")
+	req.Header.Set("Authorization",
+		fmt.Sprintf("Basic %s",
+			base64.StdEncoding.EncodeToString(cred)))
+
+	e.ServeHTTP(w, req)
+	resp := w.Result()
+	defer resp.Body.Close()
+
+	_, err := ioutil.ReadAll(resp.Body)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	// Read metrics: supposed a metrics called
+	// JWTTest_defaultLogin_jwt_internal_error_count is set to 1
+	w = httptest.NewRecorder()
+	req = httptest.NewRequest("GET", "/metrics", nil)
+	req.Header.Set("User-Agent", "Golang_UT")
+	e.ServeHTTP(w, req)
+
+	response := w.Result()
+	body, _ := io.ReadAll(response.Body)
+	assert.True(t, strings.Contains(string(body),
+		"JWTTest_defaultLogin2_jwt_issued_count 1"))
+
+	// Check log line is printed successfully.
+	assert.True(t, strings.Contains(buf.String(),
+		"HandlerIdentifier.TakeFirstOne"))
+}
+
+// TestEchoJWTMetricsFailedMetrics tests Prometheus metrics for failed
+// authentication is printed.
+func TestEchoJWTMetricsFailedMetrics(t *testing.T) {
+	buf := bytes.NewBufferString("")
+	zc := NewZerologConfig().SetWriter(buf).UseUTCTime()
+	zc.SetGlobalPolicy().SetGlobalLogger()
+
+	testKey := []byte("key123") // Empty key causes signing falure
+	c := NewHMACJWTConfig(testKey).SigningMethod("HS256")
+
+	b := NewWebAppBuilder("JWTTest")
+	e, cleanup := b.NewEcho()
+	defer cleanup()
+
+	p := newBasicAuthPolicy()
+	e.POST("/login", b.NewEchoLoginHandler(c, p, "defaultLoginS"))
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/login", nil)
+	cred := []byte("testuser:badpassword")
+	req.Header.Set("Authorization",
+		fmt.Sprintf("Basic %s",
+			base64.StdEncoding.EncodeToString(cred)))
+
+	e.ServeHTTP(w, req)
+	resp := w.Result()
+	defer resp.Body.Close()
+
+	_, err := ioutil.ReadAll(resp.Body)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+
+	// Read metrics: supposed a metrics called
+	// JWTTest_defaultLogin_jwt_internal_error_count is set to 1
+	w = httptest.NewRecorder()
+	req = httptest.NewRequest("GET", "/metrics", nil)
+	req.Header.Set("User-Agent", "Golang_UT")
+	e.ServeHTTP(w, req)
+
+	response := w.Result()
+	body, _ := io.ReadAll(response.Body)
+	assert.True(t, strings.Contains(string(body),
+		"JWTTest_defaultLoginS_jwt_failed_auth_count 1"))
+}
+
+// TestEchoJWTMetricsMultipleHandlers verifies multiple login handlers
+// uses independent metrics settings, as far as they fill with different
+// names.
+func TestEchoJWTMetricsMultipleHandlers(t *testing.T) {
+	buf := bytes.NewBufferString("")
+	zc := NewZerologConfig().SetWriter(buf).UseUTCTime()
+	zc.SetGlobalPolicy().SetGlobalLogger()
+
+	testKey := []byte("key123") // Empty key causes signing falure
+	c := NewHMACJWTConfig(testKey).SigningMethod("HS256")
+
+	b := NewWebAppBuilder("JWTTest")
+	e, cleanup := b.NewEcho()
+	defer cleanup()
+
+	p := newBasicAuthPolicy()
+	e.POST("/login1", b.NewEchoLoginHandler(c, p, "login1"))
+	e.POST("/login2", b.NewEchoLoginHandler(c, p, "login2"))
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/login1", nil)
+	cred := []byte("testuser:badpassword")
+	req.Header.Set("Authorization",
+		fmt.Sprintf("Basic %s",
+			base64.StdEncoding.EncodeToString(cred)))
+
+	e.ServeHTTP(w, req)
+	resp := w.Result()
+	defer resp.Body.Close()
+
+	_, err := ioutil.ReadAll(resp.Body)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+
+	w = httptest.NewRecorder()
+	req = httptest.NewRequest("POST", "/login2", nil)
+	cred = []byte("testuser:testpwd")
+	req.Header.Set("Authorization",
+		fmt.Sprintf("Basic %s",
+			base64.StdEncoding.EncodeToString(cred)))
+
+	e.ServeHTTP(w, req)
+	resp = w.Result()
+	defer resp.Body.Close()
+
+	_, err = ioutil.ReadAll(resp.Body)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	w = httptest.NewRecorder()
+	req = httptest.NewRequest("GET", "/metrics", nil)
+	req.Header.Set("User-Agent", "Golang_UT")
+	e.ServeHTTP(w, req)
+
+	// Two metrics should be completely independent.
+	response := w.Result()
+	body, _ := io.ReadAll(response.Body)
+	assert.True(t, strings.Contains(string(body),
+		"JWTTest_login1_jwt_failed_auth_count 1"))
+	assert.True(t, strings.Contains(string(body),
+		"JWTTest_login1_jwt_issued_count 0"))
+	assert.True(t, strings.Contains(string(body),
+		"JWTTest_login2_jwt_issued_count 1"))
+	assert.True(t, strings.Contains(string(body),
+		"JWTTest_login2_jwt_failed_auth_count 0"))
+
+	// Note: it also tests globalCleanup() function here as it does
+	// not creash.
 }
