@@ -53,6 +53,7 @@ func (c *appConfig) NewEcho() (*echo.Echo, func()) {
 		for _, m := range p.MetricsList {
 			pg.Unregister(m.MetricCollector)
 		}
+		globalCleanup()
 	}
 	return e, cleanupFunc
 }
