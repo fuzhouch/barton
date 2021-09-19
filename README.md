@@ -1,3 +1,5 @@
+[![codecov](https://codecov.io/gh/fuzhouch/barton/branch/main/graph/badge.svg?token=Z6F4LP1L1O)](https://codecov.io/gh/fuzhouch/barton)
+
 # What is Barton?
 
 Barton is a library written in Golang, with a set of utility functions
