@@ -98,16 +98,18 @@ func main() {
 }
 ```
 
+For more examples of how to use Barton, please start from the unit test
+code.
+
 ## Changelog
 
 ### v0.2.0
 
 * [X] A login handler based on https://github.com/shaj13/go-guardian.
 * [X] Support basic-auth login. See UT as demonstration.
-* [ ] Support form-based login. Provide a go-guardian's Strategy interface.
+* [X] Support form-based login. Provide a go-guardian's Strategy interface.
 * [X] Customizable log-line on JWT generation and authentication failure.
 * [X] Prometheus counter for JWT generation and authentication failure.
-* [ ] A login command line handler based on https://github.com/spf13/cobra.
 
 ### v0.1.0
 
