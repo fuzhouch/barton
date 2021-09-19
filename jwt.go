@@ -152,7 +152,10 @@ type tokenBody struct {
 	Expire int64  `json:"expire_unix_epoch"`
 }
 
-// NewEchoLoginHandler create an Labstack Echo framework handler.
+// NewEchoLoginHandler create an Labstack Echo framework handler. It
+// takes parameter p, an JWT generator policy object, and a
+// handlerIdentifier string to distinguish this handler when creating
+// Prometheus counters.
 func (hc *HMACJWTConfig) NewEchoLoginHandler(p *JWTGenPolicy,
 	handlerIdentifier ...string) echo.HandlerFunc {
 
