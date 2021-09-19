@@ -1,10 +1,16 @@
-name: Go
+name: Barton CI/CD pipeline
 
 on:
   push:
     branches: [ main feature/**, bugfix/**, ops/** ]
   pull_request:
     types: [ closed ]
+  workflow_dispatch:
+    inputs:
+      purpose:
+        description: 'Purpose of manual run'
+        required: true
+        default: 'Manual verification'
 
 jobs:
 
