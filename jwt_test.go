@@ -231,7 +231,7 @@ func TestEchoJWTLoginHandler(t *testing.T) {
 
 	// JWT token is successfully returned
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	tokenBody := tokenBody{}
+	tokenBody := TokenResponseBody{}
 	json.Unmarshal(answer, &tokenBody)
 	values := strings.Split(tokenBody.Token, ".")
 

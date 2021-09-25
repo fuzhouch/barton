@@ -147,7 +147,9 @@ func (c *HMACJWTConfig) token(exp int64, name string) (string, error) {
 	return tokenStr, err
 }
 
-type tokenBody struct {
+// TokenResponseBody represents a structure that returned JSON when
+// trying to login JWT token.
+type TokenResponseBody struct {
 	Token  string `json:"jwt"`
 	Expire int64  `json:"expire_unix_epoch"`
 }
@@ -208,7 +210,10 @@ func (hc *HMACJWTConfig) NewEchoLoginHandler(p *JWTGenPolicy,
 			Str("name", username).
 			Int64("exp", expireTime).
 			Msg(p.tokenIssuedLogMsg)
-		t := tokenBody{Token: tokenStr, Expire: expireTime}
+		t := TokenResponseBody{
+			Token:  tokenStr,
+			Expire: expireTime,
+		}
 		return c.JSON(http.StatusOK, t)
 	}
 }
