@@ -61,7 +61,7 @@ func TestHTTPFormAuthLoginHandler(t *testing.T) {
 
 	// Token is retrieved successfully.
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	tokenBody := tokenBody{}
+	tokenBody := TokenResponseBody{}
 	json.Unmarshal(answer, &tokenBody)
 	values := strings.Split(tokenBody.Token, ".")
 
@@ -133,7 +133,7 @@ func TestHTTPFormAuthLoginHandlerCustomizedFormKey(t *testing.T) {
 
 	// Token is retrieved successfully.
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	tokenBody := tokenBody{}
+	tokenBody := TokenResponseBody{}
 	json.Unmarshal(answer, &tokenBody)
 	values := strings.Split(tokenBody.Token, ".")
 
@@ -265,7 +265,7 @@ func TestHTTPFormAuthLoginHandlerGetForm(t *testing.T) {
 
 	// Token is retrieved successfully.
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	tokenBody := tokenBody{}
+	tokenBody := TokenResponseBody{}
 	json.Unmarshal(answer, &tokenBody)
 	values := strings.Split(tokenBody.Token, ".")
 
