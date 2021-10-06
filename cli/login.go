@@ -34,6 +34,7 @@ type CommandConfig interface {
 // login URL. Then it returns a JWT token remotely, and save to local
 // configuration.
 type HTTPBasicLoginConfig struct {
+	parent   CommandConfig
 	name     string
 	Username string `mapstructure:"username"`
 	Password string
@@ -43,9 +44,10 @@ type HTTPBasicLoginConfig struct {
 
 // NewHTTPBasicLoginConfig creates a new configuration object to form a
 // login command.
-func NewHTTPBasicLoginConfig(name string) *HTTPBasicLoginConfig {
+func NewHTTPBasicLoginConfig(name, loginURL string) *HTTPBasicLoginConfig {
 	return &HTTPBasicLoginConfig{
-		name: name,
+		name:     name,
+		LoginURL: loginURL,
 	}
 }
 
@@ -81,12 +83,8 @@ func (c *HTTPBasicLoginConfig) NewCobraCMD() *cobra.Command {
 		&c.LoginURL,
 		"login-url",
 		"g",
-		"",
+		c.LoginURL,
 		"Remote URL to get login token.")
-
-	viper.BindPFlag("username", cmd.Flags().Lookup("username"))
-	viper.BindPFlag("password", cmd.Flags().Lookup("password"))
-	viper.BindPFlag("login-url", cmd.Flags().Lookup("login-url"))
 	return cmd
 }
 
