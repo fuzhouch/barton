@@ -11,6 +11,7 @@ require (
 	github.com/prometheus/client_golang v1.10.0 // indirect
 	github.com/rs/zerolog v1.22.0
 	github.com/shaj13/go-guardian/v2 v2.11.3
+	github.com/spf13/afero v1.6.0 // indirect
 	github.com/spf13/cobra v1.2.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.9.0 // indirect

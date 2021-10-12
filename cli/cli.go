@@ -2,74 +2,74 @@ package cli
 
 import (
 	"fmt"
-	"strings"
+	"os"
 
+	"github.com/fuzhouch/barton"
 	"github.com/rs/zerolog/log"
+	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
 
-// CMDConfig configures a root client command line interface.
-type CMDConfig struct {
-	appName        string
-	subcommands    map[string]CommandConfig
-	configFileName string
-	LogFileName    string
+// RootCLI configures a root client command line interface.
+type RootCLI struct {
+	appName    string
+	configFile string
+	logFile    string
+	fs         afero.Fs
+	v          *viper.Viper
 }
 
-// NewCMDConfig creates a new command line configuration object. It
-// takes configurations and create an cobra.Command object.
-func NewCMDConfig(appName string) *CMDConfig {
-	return &CMDConfig{
-		appName:     appName,
-		subcommands: make(map[string]CommandConfig),
+// NewRootCLI creates a new command line configuration object. It
+// takes configurations and create an cobra.Command object. RootCLI
+// returns a root cobra.Command object with a pre-configured
+// cobra.Command.RunE function, which handles proper cleanup operations.
+func NewRootCLI(appName string) *RootCLI {
+	return &RootCLI{
+		appName: appName,
+		fs:      afero.NewOsFs(),
+		v:       viper.GetViper(),
 	}
 }
 
-// AddSubcommand adds a subcommand object to root. If a subcommand
-// object with same name already exists, the previous one is
-// overwritten.
-func (c *CMDConfig) AddSubcommand(sc CommandConfig) *CMDConfig {
-	if _, found := c.subcommands[strings.ToLower(sc.Name())]; found {
-		log.Warn().Str("name", sc.Name()).Msg("OverwriteCMD")
-	}
-	c.subcommands[sc.Name()] = sc
+// AferoFS method sets an instance of afero.Fs to decide the file
+// system we want to write to. In most cases we can just leave it unset
+// as it points to an afero.OsFs object for all regular filesystem based
+// calls. This API is useful for unit test, which allows we set memory
+// file system.
+func (c *RootCLI) AferoFS(fs afero.Fs) *RootCLI {
+	c.fs = fs
 	return c
 }
 
-// SubcommandExists checks whether a given subcommand object has been
-// added to root command. If it returns yes, developer needs to be
-// careful that existing one can be overwritten when adding this new
-// subcommand.
-func (c *CMDConfig) SubcommandExists(scName string) bool {
-	_, found := c.subcommands[strings.ToLower(scName)]
-	return found
+// Viper method sets a new Viper instance to read configuration. In most
+// case this function can be ignored. It's useful when working with unit
+// test or configure a remote readable configuration setting.
+func (c *RootCLI) Viper(v *viper.Viper) *RootCLI {
+	c.v = v
+	return c
 }
 
-// Name method returns appname of root command line processor. It's
-// implementation of CommandConfig interface.
-func (c *CMDConfig) Name() string {
-	return c.appName
-}
-
+// CobraRunEFunc is the type of Cobra's command processor function, used
+// by cobra.Command.RunE.
 type CobraRunEFunc = func(*cobra.Command, []string) error
 
-// NewCobraCMD creates a Cobra's cobra.Command object that represents
-// root command line interface.
-func (c *CMDConfig) NewCobraCMD(run CobraRunEFunc) *cobra.Command {
+// NewCobraE creates a Cobra's cobra.Command object that represents
+// root command line interface. It takes function object to fill
+// cobra's RunE field. If there's no speical step to process, pass nil.
+func (c *RootCLI) NewCobraE(run CobraRunEFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   c.appName,
 		Short: fmt.Sprintf("CLI for %s", c.appName),
 		Long:  fmt.Sprintf("CLI for %s", c.appName),
 		RunE: func(cc *cobra.Command, args []string) error {
-			logCleanup, err := c.parseLog()
+			logCleanup, err := c.loadLog(cc)
 			if err != nil {
 				return err
 			}
 			defer logCleanup()
 
-			configCleanup, err := c.parseConfig()
+			configCleanup, err := c.loadConfig(cc)
 			if err != nil {
 				return err
 			}
@@ -83,20 +83,21 @@ func (c *CMDConfig) NewCobraCMD(run CobraRunEFunc) *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(
-		&c.configFileName,
+		&c.configFile,
 		"config",
 		"c",
 		"",
-		"Config file to read content.")
+		"Path to configuration file. Omitted to use default search path.")
 	cmd.Flags().StringVarP(
-		&c.LogFileName,
+		&c.logFile,
 		"log",
 		"l",
 		"",
-		"Log file to contain log. If omitted, writes to stdout.")
+		"Path to log file. If omitted, writes to stdout.")
 
 	// XXX Please always keep in mind that the two root options,
-	// --config and --log should NEVER be bound to any parameters.
+	// --config and --log should NEVER be bound to any keys in
+	// config file.
 	//
 	// It's obvious that --config must be read from command line
 	// explicitly: there's no way for us to read configuration file
@@ -105,35 +106,98 @@ func (c *CMDConfig) NewCobraCMD(run CobraRunEFunc) *cobra.Command {
 	// want to introduce a dependency between logging and
 	// configuration file. Thus, an error when reading confiugration
 	// file can always be logged.
-
-	// Though it may be counter-intuitive, login subcommand is NOT
-	// always added by default. Remember that our API can be created
-	// without authentication? This is to support it.
-	for _, s := range c.subcommands {
-		subCmd := s.NewCobraCMD()
-		cmd.AddCommand(subCmd)
-		BindViperFlags(c.appName, subCmd.Name(), subCmd)
-	}
 	return cmd
 }
 
-func (c *CMDConfig) parseLog() (func(), error) {
+func (c *RootCLI) loadLog(cc *cobra.Command) (func(), error) {
+	arg := cc.Flags().Lookup("log")
+	if !arg.Changed {
+		log.Info().Msg("SetLog.FollowGlobalSetting")
+		return func() {}, nil
+	}
+
+	logFD, err := c.fs.OpenFile(c.logFile,
+		os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		log.Error().Err(err).Msg("SetLog.OpenFile.Fail")
+		return func() {}, err
+	}
+
+	barton.NewZerologConfig().
+		SetGlobalPolicy().
+		SetWriter(logFD).
+		SetGlobalLogger()
+	cleanupFunc := func() {
+		logFD.Close()
+	}
+	return cleanupFunc, nil
+}
+
+func (c *RootCLI) loadConfig(cc *cobra.Command) (func(), error) {
+	arg := cc.Flags().Lookup("config")
+	if !arg.Changed { // It's default value.
+		log.Info().Msg("ReadInConfig.Preset")
+		err := c.v.ReadInConfig()
+		if err != nil {
+			log.Error().
+				Err(err).
+				Str("config", c.configFile).
+				Msg("ReadInConfig.Fail")
+			return func() {}, err
+		}
+		return func() {}, nil
+	}
+
+	log.Info().Str("config", c.configFile).Msg("ReadConfig.Explicit")
+	fd, err := c.fs.Open(c.configFile)
+	if err != nil {
+		log.Error().
+			Err(err).
+			Str("config", c.configFile).
+			Msg("FsOpen.Explicit.Fail")
+		return func() {}, err
+	}
+	defer fd.Close()
+
+	err = c.v.ReadConfig(fd)
+	if err != nil {
+		log.Error().
+			Err(err).
+			Str("config", c.configFile).
+			Msg("ReadConfig.Fail")
+		return func() {}, err
+	}
+
 	return func() {}, nil
 }
 
-func (c *CMDConfig) parseConfig() (func(), error) {
-	return func() {}, nil
-}
+// SetLocalViperConfig set default viper configuration search file
+// name and path. This API uses os.UserConfigDir() to get XDG compatible
+// path. If it's working on a non-supported OS, it will fallback to
+// a non-standard ~/.appName/config.yml
+func (c *RootCLI) SetLocalViperConfig() *RootCLI {
+	// TODO Strictly speaking we should parse $XDG_CONFIG_HOME, but
+	// it is a non-trivial work. Let's take it as is.
+	//
+	// Don't worry calling multiple times. Viper does the work of
+	// checking duplicated search path.
+	c.v.SetConfigName("config")
+	c.v.SetConfigType("yml")
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		// One possible case falling to here is
+		// there's no $HOME folder defined.
+		fallback := fmt.Sprintf(".%s", c.appName)
+		log.Error().
+			Err(err).
+			Str("fallbackToPath", fallback).
+			Msg("UserConfigDir.ParseXDGConfigPath")
+		c.v.AddConfigPath(fallback)
+		return c
+	}
 
-// BindViperFlags binds options of given cobra.Command command to viper.
-// Each option binds to a name with pattern
-// "cmdName.subCmdName.optionName". It's a helper function to allow
-// Barton's root command binds options of sub command, but also useable
-// for general use.
-func BindViperFlags(cmdName, subCmdName string, subCmd *cobra.Command) {
-	subCmd.Flags().VisitAll(func(pf *pflag.Flag) {
-		prefix := fmt.Sprintf("%s.%s.%s",
-			cmdName, subCmdName, pf.Name)
-		viper.BindPFlag(prefix, pf)
-	})
+	// Always read local folder first, then global.
+	c.v.AddConfigPath(fmt.Sprintf("%s/%s", configDir, c.appName))
+	c.v.AddConfigPath(fmt.Sprintf("/etc/%s", c.appName))
+	return c
 }

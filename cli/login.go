@@ -28,12 +28,12 @@ type CommandConfig interface {
 	NewCobraCMD() *cobra.Command
 }
 
-// HTTPBasicLoginConfig defines a configuration that creates a
+// HTTPBasicLogin defines a configuration that creates a
 // subcommand to request JWT token via HTTP basic config. It does the
 // work by taking a combination username and password, plus a remote
 // login URL. Then it returns a JWT token remotely, and save to local
 // configuration.
-type HTTPBasicLoginConfig struct {
+type HTTPBasicLogin struct {
 	parent   CommandConfig
 	name     string
 	Username string `mapstructure:"username"`
@@ -42,23 +42,23 @@ type HTTPBasicLoginConfig struct {
 	JWTToken string `mapstructure:"jwt_token"`
 }
 
-// NewHTTPBasicLoginConfig creates a new configuration object to form a
+// NewHTTPBasicLogin creates a new configuration object to form a
 // login command.
-func NewHTTPBasicLoginConfig(name, loginURL string) *HTTPBasicLoginConfig {
-	return &HTTPBasicLoginConfig{
+func NewHTTPBasicLogin(name, loginURL string) *HTTPBasicLogin {
+	return &HTTPBasicLogin{
 		name:     name,
 		LoginURL: loginURL,
 	}
 }
 
 // Name method returns subcommand name.
-func (c *HTTPBasicLoginConfig) Name() string {
+func (c *HTTPBasicLogin) Name() string {
 	return c.name
 }
 
-// NewCobraCMD returns a Cobra's corba.Command object, which reads
+// NewCobraE returns a Cobra's corba.Command object, which reads
 // command line and perform login action.
-func (c *HTTPBasicLoginConfig) NewCobraCMD() *cobra.Command {
+func (c *HTTPBasicLogin) NewCobraE() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   c.name,
 		Short: "Login command with HTTP basic login",
@@ -89,7 +89,7 @@ func (c *HTTPBasicLoginConfig) NewCobraCMD() *cobra.Command {
 }
 
 // login method performs a remote login action.
-func (c *HTTPBasicLoginConfig) login() error {
+func (c *HTTPBasicLogin) login() error {
 	viper.UnmarshalKey(c.name, &c)
 	if len(c.Username) == 0 {
 		return ErrUsernameMissing
