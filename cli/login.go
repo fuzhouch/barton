@@ -9,6 +9,7 @@ import (
 
 	"github.com/fuzhouch/barton"
 	"github.com/rs/zerolog/log"
+	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -21,25 +22,19 @@ var ErrUsernameMissing = errors.New("MissingUsername")
 // is missing from configuration file and command line options.
 var ErrPasswordMissing = errors.New("MissingPassword")
 
-// CommandConfig interface defines interface of creating a subcommand
-// for a given CLI object.
-type CommandConfig interface {
-	Name() string
-	NewCobraCMD() *cobra.Command
-}
-
 // HTTPBasicLogin defines a configuration that creates a
 // subcommand to request JWT token via HTTP basic config. It does the
 // work by taking a combination username and password, plus a remote
 // login URL. Then it returns a JWT token remotely, and save to local
 // configuration.
 type HTTPBasicLogin struct {
-	parent   CommandConfig
 	name     string
 	Username string `mapstructure:"username"`
 	Password string
 	LoginURL string `mapstructure:"login_url"`
 	JWTToken string `mapstructure:"jwt_token"`
+	v        *viper.Viper
+	fs       afero.Fs
 }
 
 // NewHTTPBasicLogin creates a new configuration object to form a
@@ -48,16 +43,36 @@ func NewHTTPBasicLogin(name, loginURL string) *HTTPBasicLogin {
 	return &HTTPBasicLogin{
 		name:     name,
 		LoginURL: loginURL,
+		v:        viper.GetViper(),
 	}
 }
 
-// Name method returns subcommand name.
+// Name method returns name of subcommand.
 func (c *HTTPBasicLogin) Name() string {
 	return c.name
 }
 
+// Viper method sets a new Viper instance to read configuration. In most
+// case this function can be ignored. It's useful when working with unit
+// test or setting namespace from a sub-section of viper instance. For
+// HTTPBasicLogin command, it's called by RootCLI.AddSubcommand() method
+// to ensure a correct, layed viper configuration structure.
+func (c *HTTPBasicLogin) Viper(v *viper.Viper) {
+	c.v = v
+}
+
+// AferoFS method sets an instance of afero.Fs to decide the file
+// system we want to write to. Same with RootCLI. This method is useful
+// during unit test. Similar with Viper() method, it's called by
+// RootCLI.AddSubcommand() to ensure a consistent file system target.
+func (c *HTTPBasicLogin) AferoFS(fs afero.Fs) {
+	c.fs = fs
+}
+
 // NewCobraE returns a Cobra's corba.Command object, which reads
-// command line and perform login action.
+// command line and perform login action. Unlike RootCLI, it does not
+// pass customized RunE function from parameter, since sub-command
+// should be done quickly.
 func (c *HTTPBasicLogin) NewCobraE() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   c.name,
@@ -90,7 +105,7 @@ func (c *HTTPBasicLogin) NewCobraE() *cobra.Command {
 
 // login method performs a remote login action.
 func (c *HTTPBasicLogin) login() error {
-	viper.UnmarshalKey(c.name, &c)
+	c.v.UnmarshalKey(c.name, &c)
 	if len(c.Username) == 0 {
 		return ErrUsernameMissing
 	}
@@ -104,6 +119,10 @@ func (c *HTTPBasicLogin) login() error {
 		Timeout: time.Second * 30,
 	}
 	resp, err := cli.Do(req)
+	if err != nil {
+		log.Error().Err(err).Msg("HTTPRequest.Send")
+		return err
+	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
@@ -128,7 +147,7 @@ func (c *HTTPBasicLogin) login() error {
 
 	c.JWTToken = body.Token
 
-	err = viper.WriteConfig()
+	err = c.v.WriteConfig()
 	if err != nil {
 		log.Error().Err(err).Msg("WriteConfig")
 		return err

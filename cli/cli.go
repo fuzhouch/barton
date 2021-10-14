@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/fuzhouch/barton"
 	"github.com/rs/zerolog/log"
@@ -11,13 +12,21 @@ import (
 	"github.com/spf13/viper"
 )
 
+type SubcommandConfig interface {
+	Name() string
+	Viper(*viper.Viper)
+	AferoFS(afero.Fs)
+	NewCobraE() *cobra.Command
+}
+
 // RootCLI configures a root client command line interface.
 type RootCLI struct {
-	appName    string
-	configFile string
-	logFile    string
-	fs         afero.Fs
-	v          *viper.Viper
+	appName     string
+	configFile  string
+	logFile     string
+	fs          afero.Fs
+	v           *viper.Viper
+	subCommands map[string]SubcommandConfig
 }
 
 // NewRootCLI creates a new command line configuration object. It
@@ -26,9 +35,10 @@ type RootCLI struct {
 // cobra.Command.RunE function, which handles proper cleanup operations.
 func NewRootCLI(appName string) *RootCLI {
 	return &RootCLI{
-		appName: appName,
-		fs:      afero.NewOsFs(),
-		v:       viper.GetViper(),
+		appName:     appName,
+		fs:          afero.NewOsFs(),
+		v:           viper.GetViper(),
+		subCommands: make(map[string]SubcommandConfig),
 	}
 }
 
@@ -106,6 +116,10 @@ func (c *RootCLI) NewCobraE(run CobraRunEFunc) *cobra.Command {
 	// want to introduce a dependency between logging and
 	// configuration file. Thus, an error when reading confiugration
 	// file can always be logged.
+
+	for _, sub := range c.subCommands {
+		cmd.AddCommand(sub.NewCobraE())
+	}
 	return cmd
 }
 
@@ -199,5 +213,29 @@ func (c *RootCLI) SetLocalViperConfig() *RootCLI {
 	// Always read local folder first, then global.
 	c.v.AddConfigPath(fmt.Sprintf("%s/%s", configDir, c.appName))
 	c.v.AddConfigPath(fmt.Sprintf("/etc/%s", c.appName))
+	return c
+}
+
+// AddSubcommand methods binds a SubcommandConfig object to RootCLI. It
+// allows subcommand share configuration reading (via Viper) and file
+// system abstraction via Afero. Internally, RootCLI uses a map to keep
+// a reference of each subcommand.
+func (c *RootCLI) AddSubcommand(cfg SubcommandConfig) *RootCLI {
+	configSection := fmt.Sprintf("%s.%s", c.appName, cfg.Name())
+	subV := c.v.Sub(configSection)
+	if subV == nil {
+		c.v.Set(configSection, make(map[string]interface{}))
+		subV = c.v.Sub(configSection)
+		fmt.Printf(">>> %v\n", subV == nil)
+	}
+	cfg.Viper(subV)
+
+	cfg.AferoFS(c.fs)
+	_, exists := c.subCommands[strings.ToLower(cfg.Name())]
+	c.subCommands[strings.ToLower(cfg.Name())] = cfg
+	log.Info().
+		Bool("replace", exists).
+		Str("name", cfg.Name()).
+		Msg("AddSubcommand")
 	return c
 }

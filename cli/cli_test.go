@@ -341,5 +341,10 @@ func TestExplicitRunEFunctionIsCalled(t *testing.T) {
 
 	out := b.String()
 	assert.True(t, strings.Contains(out, "InRunE"))
+}
 
+// TestCreateDefaultConfigFile verifies command line creates an empty
+// file if no file in paths exists.
+func TestCreateDefaultConfigFile(t *testing.T) {
+	// TODO
 }
