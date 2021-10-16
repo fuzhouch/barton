@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -49,7 +50,7 @@ func TestRunWithExplicitConfigFileInOptions(t *testing.T) {
 	root := NewRootCLI("test-app").
 		AferoFS(fs).
 		Viper(v).
-		SetLocalViperConfig().
+		SetLocalViperPolicy().
 		NewCobraE(nil)
 
 	root.SetArgs([]string{"--config", "./test.yml"})
@@ -79,7 +80,7 @@ func TestDefaultConfigFileLocalConfigFirst(t *testing.T) {
 	root := NewRootCLI("test-app").
 		AferoFS(fs).
 		Viper(v).
-		SetLocalViperConfig().
+		SetLocalViperPolicy().
 		NewCobraE(nil)
 
 	root.SetArgs([]string{})
@@ -103,7 +104,7 @@ func TestDefaultConfigFileFallbackToEtc(t *testing.T) {
 	root := NewRootCLI("test-app").
 		AferoFS(fs).
 		Viper(v).
-		SetLocalViperConfig().
+		SetLocalViperPolicy().
 		NewCobraE(nil)
 
 	root.SetArgs([]string{})
@@ -148,7 +149,7 @@ func TestUserConfigDirReturnError(t *testing.T) {
 	root := NewRootCLI("test-app").
 		AferoFS(fs).
 		Viper(v).
-		SetLocalViperConfig().
+		SetLocalViperPolicy().
 		NewCobraE(nil)
 
 	root.SetArgs([]string{})
@@ -158,9 +159,10 @@ func TestUserConfigDirReturnError(t *testing.T) {
 	assert.Equal(t, "non-standard", value)
 }
 
-// TestDefaultConfigReadFail verifies default configuration file reading
-// returns error, when none of given path contains configuration file.
-func TestDefaultConfigReadFail(t *testing.T) {
+// TestDefaultConfigReadFailOnNoFileExist verifies default configuration
+// file reading returns error, when none of given path contains
+// configuration file.
+func TestDefaultConfigReadFileOnNoFileExist(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	v := viper.New()
 	v.SetFs(fs)
@@ -168,7 +170,7 @@ func TestDefaultConfigReadFail(t *testing.T) {
 	root := NewRootCLI("test-app").
 		AferoFS(fs).
 		Viper(v).
-		SetLocalViperConfig().
+		SetLocalViperPolicy().
 		NewCobraE(nil)
 
 	b := bytes.NewBufferString("")
@@ -178,7 +180,9 @@ func TestDefaultConfigReadFail(t *testing.T) {
 	err := root.Execute()
 	assert.NotNil(t, err)
 	out := b.String()
-	assert.True(t, strings.Contains(out, "ReadInConfig.Fail"))
+	assert.True(t, strings.Contains(out, "ReadInConfig.Preset.Fail"))
+	var ee viper.ConfigFileNotFoundError
+	assert.True(t, errors.As(err, &ee))
 }
 
 // TestExplicitConfigReadFail verifies explicit configuration file
@@ -192,7 +196,7 @@ func TestExplicitConfigReadFail(t *testing.T) {
 	root := NewRootCLI("test-app").
 		AferoFS(fs).
 		Viper(v).
-		SetLocalViperConfig().
+		SetLocalViperPolicy().
 		NewCobraE(nil)
 
 	b := bytes.NewBufferString("")
@@ -219,7 +223,7 @@ func TestExplicitConfigReadContentFail(t *testing.T) {
 	root := NewRootCLI("test-app").
 		AferoFS(fs).
 		Viper(v).
-		SetLocalViperConfig().
+		SetLocalViperPolicy().
 		NewCobraE(nil)
 
 	b := bytes.NewBufferString("")
@@ -246,7 +250,7 @@ func TestExplicitLogCannotOpenReturnError(t *testing.T) {
 	root := NewRootCLI("test-app").
 		AferoFS(fs).
 		Viper(v).
-		SetLocalViperConfig().
+		SetLocalViperPolicy().
 		NewCobraE(nil)
 
 	b := bytes.NewBufferString("")
@@ -273,7 +277,7 @@ func TestExplicitLogOpenOnNotExist(t *testing.T) {
 	root := NewRootCLI("test-app").
 		AferoFS(fs).
 		Viper(v).
-		SetLocalViperConfig().
+		SetLocalViperPolicy().
 		NewCobraE(nil)
 
 	root.SetArgs([]string{"--log", "open-by-default.log"})
@@ -301,7 +305,7 @@ func TestDefaultLogFollowGlobalSetting(t *testing.T) {
 	root := NewRootCLI("test-app").
 		AferoFS(fs).
 		Viper(v).
-		SetLocalViperConfig().
+		SetLocalViperPolicy().
 		NewCobraE(nil)
 
 	root.SetArgs([]string{""})
@@ -329,7 +333,7 @@ func TestExplicitRunEFunctionIsCalled(t *testing.T) {
 	root := NewRootCLI("test-app").
 		AferoFS(fs).
 		Viper(v).
-		SetLocalViperConfig().
+		SetLocalViperPolicy().
 		NewCobraE(func(cc *cobra.Command, args []string) error {
 			log.Info().Msg("InRunE")
 			return nil
@@ -341,10 +345,4 @@ func TestExplicitRunEFunctionIsCalled(t *testing.T) {
 
 	out := b.String()
 	assert.True(t, strings.Contains(out, "InRunE"))
-}
-
-// TestCreateDefaultConfigFile verifies command line creates an empty
-// file if no file in paths exists.
-func TestCreateDefaultConfigFile(t *testing.T) {
-	// TODO
 }

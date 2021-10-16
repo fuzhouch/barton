@@ -14,7 +14,7 @@ import (
 
 type SubcommandConfig interface {
 	Name() string
-	Viper(*viper.Viper)
+	Viper(*viper.Viper, string)
 	AferoFS(afero.Fs)
 	NewCobraE() *cobra.Command
 }
@@ -97,7 +97,7 @@ func (c *RootCLI) NewCobraE(run CobraRunEFunc) *cobra.Command {
 		"config",
 		"c",
 		"",
-		"Path to configuration file. Omitted to use default search path.")
+		"Path to config file. Omitted to use default search paths.")
 	cmd.Flags().StringVarP(
 		&c.logFile,
 		"log",
@@ -155,8 +155,7 @@ func (c *RootCLI) loadConfig(cc *cobra.Command) (func(), error) {
 		if err != nil {
 			log.Error().
 				Err(err).
-				Str("config", c.configFile).
-				Msg("ReadInConfig.Fail")
+				Msg("ReadInConfig.Preset.Fail")
 			return func() {}, err
 		}
 		return func() {}, nil
@@ -185,11 +184,11 @@ func (c *RootCLI) loadConfig(cc *cobra.Command) (func(), error) {
 	return func() {}, nil
 }
 
-// SetLocalViperConfig set default viper configuration search file
+// SetLocalViperPolicy method sets default viper configuration search file
 // name and path. This API uses os.UserConfigDir() to get XDG compatible
 // path. If it's working on a non-supported OS, it will fallback to
 // a non-standard ~/.appName/config.yml
-func (c *RootCLI) SetLocalViperConfig() *RootCLI {
+func (c *RootCLI) SetLocalViperPolicy() *RootCLI {
 	// TODO Strictly speaking we should parse $XDG_CONFIG_HOME, but
 	// it is a non-trivial work. Let's take it as is.
 	//
@@ -226,10 +225,8 @@ func (c *RootCLI) AddSubcommand(cfg SubcommandConfig) *RootCLI {
 	if subV == nil {
 		c.v.Set(configSection, make(map[string]interface{}))
 		subV = c.v.Sub(configSection)
-		fmt.Printf(">>> %v\n", subV == nil)
 	}
-	cfg.Viper(subV)
-
+	cfg.Viper(subV, configSection)
 	cfg.AferoFS(c.fs)
 	_, exists := c.subCommands[strings.ToLower(cfg.Name())]
 	c.subCommands[strings.ToLower(cfg.Name())] = cfg

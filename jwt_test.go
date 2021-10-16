@@ -939,5 +939,5 @@ func TestEchoJWTMetricsMultipleHandlers(t *testing.T) {
 		"login2_jwt_failed_auth_count 0"))
 
 	// Note: it also tests globalCleanup() function here as it does
-	// not creash.
+	// not crash.
 }
