@@ -48,31 +48,54 @@ go get -u https://github.com/fuzhouch/barton
 
 ## Quick start
 
+Let's start from a complete example by building a web service and a
+client which can talk to each other.
+
+The web server listens ``http://127.0.0.1:8080`` and provides two
+endpoints. The first endpoint, ``/login`` to take an HTTP basic login
+request, and then return an JWT token. The second endpoint,
+``/v1/hello``, is protected by JWT authentication, accepts only request
+with a valid JWT token attached in HTTP request. If the token is good,
+it returns a string "hello!". If the token is invalid or expired, it
+returns an error message with HTTP status code set to 400.
+
 The following code demonstrate how to create a simple Echo web app with
 Barton APIs. You may notice Echo web app is still functioning when
 the Zerolog and JWT configurations are not set. When
 ``NewZerologConfig`` is not called, the created Echo web app writes
-structural logs to standard error. Meanwhile, JWT is not enabled until
-``EnableHMACJWT()`` API is called. Unlike Zerolog and JWT, Prometheus
+structural logs to standard error. Note that Prometheus
 integration is already enabled and exposed under ``/metrics`` path.
 
-```
-$ go mod init github.com/fuzhouch/test
-$ go get -u github.com/fuzhouch/barton@v0.1.0
-$ go get -u github.com/labstack/echo/v4@v4.3.0
-$ vim main.go
-```
+The full code source and project files are available at ``_example/``
+folder under https://github.com/fuzhouch/barton project.
 
 ```go
-// File - main.go
+// _example/server/main.go
 package main
 
 import (
+	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/fuzhouch/barton"
 	"github.com/labstack/echo/v4"
+	"github.com/shaj13/go-guardian/v2/auth"
+	"github.com/shaj13/go-guardian/v2/auth/strategies/basic"
 )
+
+func validate(ctx context.Context, r *http.Request,
+	userName, password string) (auth.Info, error) {
+
+	// here connect to db or any other service to fetch user and validate it.
+	if userName == "testuser" && password == "testpwd" {
+		return auth.NewDefaultUser("testuser",
+			"testpwd",
+			nil,
+			nil), nil
+	}
+	return nil, fmt.Errorf("Invalid credentials")
+}
 
 func main() {
 	// Setup Zerolog
@@ -81,16 +104,24 @@ func main() {
 
 	// Setup JWT authentication
 	testKey := []byte("keep-it-secret")
-	c := barton.NewHMACJWTGen(testKey)
+
+	jwtGen := barton.NewHMACJWTGen(testKey)
+	// Authentication method
+	strategy := basic.New(validate)
+	policy := barton.NewJWTGenPolicy(strategy).PrintAuthFailLog(true)
 
 	// Create Echo app with Prometheus enabled.
 	// JWT token authentication is enabled explicitly.
 	e, cleanup := barton.NewWebApp("MyAPI").NewEcho()
 	defer cleanup()
 
-	e.Use(c.NewEchoMiddleware()) // API /test is under protection.
+	// Add /login endpoint to handle login requests. It's
+	// unprotected.
+	e.POST("/login", jwtGen.NewEchoLoginHandler(policy))
 
-	e.GET("/test", func(c echo.Context) error {
+	// All other APIs, are protected by JWT checking middleware.
+	g := e.Group("/v1", jwtGen.NewEchoMiddleware())
+	g.GET("/hello", func(c echo.Context) error { // Protected by JWT.
 		return c.String(http.StatusOK, "hello!")
 	})
 
@@ -100,21 +131,71 @@ func main() {
 }
 ```
 
-## Build a command line client.
-
-Starting from version 0.3.0, Barton supports a ``cli`` module to allow
-building a CLI application to interact web server. It's provides two
-features:
-
-- A ``RootCLI`` object. It handles logging and configuration file.
-- A ``HTTPBasicLogin`` object. It sends username/password to a Barton
-  login API endpoint, and save JWT token.
+Starting from Barton ``v0.3.0``, a sub-module called ``cli`` is
+introduced to support creation of command line client. It provides a
+``RootCLI`` and an ``HTTPBasicLogin`` to create
+[Cobra](https://github.com/spf13/cobra) based command line processor.
+The ``HTTPBasicLogin`` provides subcommand to authenticate with remote
+server, and save received JWT token in configuration file. A full client
+code looks like below:
 
 ```go
+// _example/client/main.go
+package main
+
+import (
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+
+	"github.com/fuzhouch/barton"
+	"github.com/fuzhouch/barton/cli"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+)
+
+func main() {
+	// Setup Zerolog
+	zc := barton.NewZerologConfig().UseUTCTime()
+	zc.SetGlobalPolicy().SetOffGlobalLogger()
+
+	login := cli.NewHTTPBasicLogin("login", "http://127.0.0.1:8080/login")
+
+	rootCLI, cleanup := cli.NewRootCLI("testcli").
+		SetLocalViperPolicy().
+		AddSubcommand(login).
+		NewCobraE(func(c *cobra.Command, args []string) error {
+			// IMPORTANT This is an example to show usage of Barton
+			// APIs. For showing the main path it skips all error
+			// handling logic. This is bad practice for production
+			// use. Please properly handle errors instead of copy
+			// and paste code blindly.
+			token := viper.GetString("testcli.login.token")
+			req, _ := http.NewRequest("GET", "http://127.0.0.1:8080/v1/hello", nil)
+			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+
+			cli := &http.Client{}
+			resp, _ := cli.Do(req)
+			defer resp.Body.Close()
+
+			answer, _ := ioutil.ReadAll(resp.Body)
+			fmt.Printf("Answer from server: %s\n", answer)
+
+			return nil
+		})
+	defer cleanup()
+
+	err := rootCLI.Execute()
+	if err != nil {
+		fmt.Printf("Error on execution: %s.", err.Error())
+		os.Exit(1)
+	}
+}
 ```
 
-For more examples of how to use Barton, please start from the unit test
-code.
+Please check unit test code to get detailed explanation of APIs and
+features.
 
 ## Changelog
 
@@ -127,7 +208,6 @@ code.
 * [X] Default username/token configuration section in configuration file.
 * [X] Built-in login subcommand to send request and receive token.
 * [X] Type renaming to remove golint errors.
-* [ ] Bind login parameter to environment variables. Variable names can be configured.
 
 ### v0.2.0
 
