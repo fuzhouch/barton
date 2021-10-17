@@ -176,7 +176,7 @@ test-app4:
 	err = cmd.ParseFlags([]string{
 		"-u", "usr",
 		"-p", "pwd",
-		"-g", "http://127.0.0.1:8080/"})
+		"-a", "http://127.0.0.1:8080/"})
 	assert.Nil(t, err)
 	err = login.readConfig()
 	assert.Nil(t, err)
@@ -189,7 +189,7 @@ test-app4:
 	err = cmd.ParseFlags([]string{
 		"-u", "usr",
 		"-p", "pwd",
-		"-g", "http://127.0.0.1:9090/",
+		"-a", "http://127.0.0.1:9090/",
 	})
 	assert.Nil(t, err)
 	err = login.readConfig()
