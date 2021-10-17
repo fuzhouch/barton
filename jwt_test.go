@@ -65,7 +65,7 @@ func TestEchoEnableJWTPreventNoJWTAccess(t *testing.T) {
 	testKey := "test123"
 	c := NewHMACJWTConfig([]byte(testKey))
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
 	e.Use(c.NewEchoMiddleware())
@@ -83,7 +83,7 @@ func TestEchoEnableJWTPreventInvalidJWTAccess(t *testing.T) {
 	testKey := []byte("test123")
 	c := NewHMACJWTConfig(testKey)
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
 	e.Use(c.NewEchoMiddleware())
@@ -117,7 +117,7 @@ func TestEchoEnableJWTAllowValidToken(t *testing.T) {
 	testKey := []byte("test123")
 	c := NewHMACJWTConfig(testKey).SigningMethod("HS384")
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	e.Use(c.NewEchoMiddleware())
 	defer cleanup()
 
@@ -203,7 +203,7 @@ func TestEchoJWTLoginHandler(t *testing.T) {
 	testKey := []byte("test123")
 	c := NewHMACJWTConfig(testKey).SigningMethod("HS384")
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
 	g := e.Group("/v1", c.NewEchoMiddleware())
@@ -291,7 +291,7 @@ func TestEchoReturnJWTTokenCustomizedLogs(t *testing.T) {
 	testKey := []byte("test123")
 	c := NewHMACJWTConfig(testKey).SigningMethod("HS384")
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
 	p := newBasicAuthPolicy().TokenIssuedLogMsg("Bravo!")
@@ -352,7 +352,7 @@ func TestEchoBadAuthenticationNoLog(t *testing.T) {
 	testKey := []byte("test123")
 	c := NewHMACJWTConfig(testKey).SigningMethod("HS256")
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
 	p := newBasicAuthPolicy()
@@ -395,7 +395,7 @@ func TestEchoBadAuthenticationPrintLog(t *testing.T) {
 	testKey := []byte("test123")
 	c := NewHMACJWTConfig(testKey).SigningMethod("HS256")
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
 	p := newBasicAuthPolicy().PrintAuthFailLog(true)
@@ -439,7 +439,7 @@ func TestEchoBadAuthenticationPrintCustomizedLog(t *testing.T) {
 	testKey := []byte("test123")
 	c := NewHMACJWTConfig(testKey).SigningMethod("HS256")
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
 	p := newBasicAuthPolicy().
@@ -483,7 +483,7 @@ func TestEchoReturnJWTTokenWithShorterExpireSpan(t *testing.T) {
 	testKey := []byte("test123")
 	c := NewHMACJWTConfig(testKey).SigningMethod("HS384")
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
 	g := e.Group("/v1", c.NewEchoMiddleware())
@@ -565,7 +565,7 @@ func TestEchoJWTGenFailure(t *testing.T) {
 	testKey := []byte("key123") // Empty key causes signing falure
 	c := NewHMACJWTConfig(testKey).SigningMethod("HS256")
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
 	p := newBasicAuthPolicy()
@@ -610,7 +610,7 @@ func TestEchoLookupJWTTokenFromContext(t *testing.T) {
 	token, err := c.token(time.Now().Add(time.Hour*1).Unix(), "tu")
 	assert.Nil(t, err)
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
 	e.Use(c.NewEchoMiddleware())
@@ -650,7 +650,7 @@ func TestEchoLookupJWTTokenFromContextWithCustomizedKey(t *testing.T) {
 	token, err := c.token(time.Now().Add(time.Hour*1).Unix(), "tu2")
 	assert.Nil(t, err)
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
 	e.Use(c.NewEchoMiddleware())
@@ -685,7 +685,7 @@ func TestEchoJWTMetricsDefaultName(t *testing.T) {
 	testKey := []byte("key123") // Empty key causes signing falure
 	c := NewHMACJWTConfig(testKey).SigningMethod("HS256")
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
 	p := newBasicAuthPolicy()
@@ -735,7 +735,7 @@ func TestEchoJWTMetricsCustomizedName(t *testing.T) {
 	testKey := []byte("key123") // Empty key causes signing falure
 	c := NewHMACJWTConfig(testKey).SigningMethod("HS256")
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
 	p := newBasicAuthPolicy()
@@ -790,7 +790,7 @@ func TestEchoJWTMetricsMultiplePrefixTakeOne(t *testing.T) {
 	testKey := []byte("key123") // Empty key causes signing falure
 	c := NewHMACJWTConfig(testKey).SigningMethod("HS256")
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
 	p := newBasicAuthPolicy()
@@ -839,7 +839,7 @@ func TestEchoJWTMetricsFailedMetrics(t *testing.T) {
 	testKey := []byte("key123") // Empty key causes signing falure
 	c := NewHMACJWTConfig(testKey).SigningMethod("HS256")
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
 	p := newBasicAuthPolicy()
@@ -884,7 +884,7 @@ func TestEchoJWTMetricsMultipleHandlers(t *testing.T) {
 	testKey := []byte("key123") // Empty key causes signing falure
 	c := NewHMACJWTConfig(testKey).SigningMethod("HS256")
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
 	p := newBasicAuthPolicy()

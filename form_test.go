@@ -35,7 +35,7 @@ func TestHTTPFormAuthLoginHandler(t *testing.T) {
 	testKey := []byte("test123")
 	c := NewHMACJWTConfig(testKey).SigningMethod("HS384")
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
 	g := e.Group("/v1", c.NewEchoMiddleware()) // protected
@@ -107,7 +107,7 @@ func TestHTTPFormAuthLoginHandlerCustomizedFormKey(t *testing.T) {
 	testKey := []byte("test123")
 	c := NewHMACJWTConfig(testKey).SigningMethod("HS384")
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
 	g := e.Group("/v1", c.NewEchoMiddleware()) // protected
@@ -162,7 +162,7 @@ func TestHTTPFormAuthParseFail(t *testing.T) {
 	testKey := []byte("test123")
 	c := NewHMACJWTConfig(testKey).SigningMethod("HS384")
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
 	g := e.Group("/v1", c.NewEchoMiddleware()) // protected
@@ -198,7 +198,7 @@ func TestHTTPFormAuthValidateFail(t *testing.T) {
 	testKey := []byte("test123")
 	c := NewHMACJWTConfig(testKey).SigningMethod("HS384")
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
 	g := e.Group("/v1", c.NewEchoMiddleware()) // protected
@@ -235,7 +235,7 @@ func TestHTTPFormAuthLoginHandlerGetForm(t *testing.T) {
 	testKey := []byte("test123")
 	c := NewHMACJWTConfig(testKey).SigningMethod("HS384")
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
 	g := e.Group("/v1", c.NewEchoMiddleware()) // protected

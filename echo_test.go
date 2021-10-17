@@ -19,9 +19,9 @@ func TestEchoNameChange(t *testing.T) {
 	zc := NewZerologConfig().SetWriter(buf).UseUTCTime()
 	zc.SetGlobalPolicy().SetGlobalLogger()
 
-	b := NewWebAppBuilder("BartonTest")
+	b := NewWebApp("BartonTest")
 	assert.Equal(t, "BartonTest", b.appName)
-	b.AppName("SetANewName")
+	b.Name("SetANewName")
 	assert.Equal(t, "SetANewName", b.appName)
 	e, cleanup := b.NewEcho()
 	defer cleanup()
@@ -52,7 +52,7 @@ func TestEchoPrometheusIntegration(t *testing.T) {
 	// inside Promethues library complaining duplicated registration
 	// attempts. This is because Prometheus registration is done in
 	// global namespace.
-	e, cleanup := NewWebAppBuilder("BartonTest").NewEcho()
+	e, cleanup := NewWebApp("BartonTest").NewEcho()
 	defer cleanup()
 
 	// Perform an HTTP call
@@ -85,7 +85,7 @@ func TestEchoEnablePrometheusNoException(t *testing.T) {
 	// inside Promethues library complaining duplicated registration
 	// attempts. This is because Prometheus registration is done in
 	// global namespace.
-	e, cleanup := NewWebAppBuilder("BartonTest").NewEcho()
+	e, cleanup := NewWebApp("BartonTest").NewEcho()
 	defer cleanup()
 
 	e.Use(c.NewEchoMiddleware())
@@ -129,7 +129,7 @@ func TestEchoEnablePrometheusBecomeJWTException(t *testing.T) {
 	zc.SetGlobalPolicy()
 	zc.SetGlobalLogger()
 
-	e, cleanup := NewWebAppBuilder("BartonTest").NewEcho()
+	e, cleanup := NewWebApp("BartonTest").NewEcho()
 	defer cleanup()
 
 	g := e.Group("/v1", c.NewEchoMiddleware())

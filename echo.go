@@ -10,24 +10,26 @@ import (
 	"github.com/ziflex/lecho/v2"
 )
 
-type appConfig struct {
+// WebApp is a configuration object that sets configurations, and build
+// an Echo web server via NewEcho() method.
+type WebApp struct {
 	appName                 string
 	enablePrometheus        bool
 	enableJWTAuthentication bool
 }
 
 // NewWebApp is main entry to start building an Echo app engine.
-// It returns a chainable configuration object, appConfig, which
+// It returns a chainable configuration object, WebApp, which
 // is configured as setter functions. The final step is it calls New()
 // function to really build an Echo engine, plus a cleanup function
 // returned.
-func NewWebAppBuilder(appName string) *appConfig {
-	return &appConfig{appName: appName}
+func NewWebApp(appName string) *WebApp {
+	return &WebApp{appName: appName}
 }
 
 // AppName setter sets app name for Echo engine. By defualt the name is
 // set to Barton-Echo-App.
-func (c *appConfig) AppName(name string) *appConfig {
+func (c *WebApp) Name(name string) *WebApp {
 	c.appName = name
 	return c
 }
@@ -35,7 +37,7 @@ func (c *appConfig) AppName(name string) *appConfig {
 // NewEcho method creates a real echo.Echo object, plus a cleanup()
 // function to execute internal cleanup logic, such as
 // unregistering Prometheus metrics collector in global registry.
-func (c *appConfig) NewEcho() (*echo.Echo, func()) {
+func (c *WebApp) NewEcho() (*echo.Echo, func()) {
 	e := echo.New()
 
 	wrapper := lecho.From(log.Logger)
