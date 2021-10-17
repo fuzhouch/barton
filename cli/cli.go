@@ -66,9 +66,12 @@ func (c *RootCLI) Viper(v *viper.Viper) *RootCLI {
 // CobraRunEFunc is the type of Cobra's command processor function, used
 // by cobra.Command.RunE.
 type CobraRunEFunc = func(*cobra.Command, []string) error
+
+// CleanupFunc is the type of cleanup function returned by Barton.
+// CleanupFunc instances releases resource gracefully.
 type CleanupFunc = func()
 
-// Execute methods creates a Cobra's cobra.Command object that represents
+// NewCobraE methods creates a Cobra's cobra.Command object that represents
 // root command line interface. It takes function object to fill
 // cobra's RunE field. If there's no speical step to process, pass nil.
 //
