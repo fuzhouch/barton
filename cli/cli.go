@@ -12,7 +12,10 @@ import (
 	"github.com/spf13/viper"
 )
 
-type SubcommandConfig interface {
+// SubcommandBuilder provides a interface that all subcommand builders
+// needs to provide. They are used by RootCLI to configure subcommand
+// creation.
+type SubcommandBuilder interface {
 	Name() string
 	Viper(*viper.Viper, string)
 	AferoFS(afero.Fs)
@@ -26,7 +29,7 @@ type RootCLI struct {
 	logFile     string
 	fs          afero.Fs
 	v           *viper.Viper
-	subCommands map[string]SubcommandConfig
+	subCommands map[string]SubcommandBuilder
 }
 
 // NewRootCLI creates a new command line configuration object. It
@@ -38,7 +41,7 @@ func NewRootCLI(appName string) *RootCLI {
 		appName:     appName,
 		fs:          afero.NewOsFs(),
 		v:           viper.GetViper(),
-		subCommands: make(map[string]SubcommandConfig),
+		subCommands: make(map[string]SubcommandBuilder),
 	}
 }
 
@@ -215,11 +218,11 @@ func (c *RootCLI) SetLocalViperPolicy() *RootCLI {
 	return c
 }
 
-// AddSubcommand methods binds a SubcommandConfig object to RootCLI. It
+// AddSubcommand methods binds a SubcommandBuilder object to RootCLI. It
 // allows subcommand share configuration reading (via Viper) and file
 // system abstraction via Afero. Internally, RootCLI uses a map to keep
 // a reference of each subcommand.
-func (c *RootCLI) AddSubcommand(cfg SubcommandConfig) *RootCLI {
+func (c *RootCLI) AddSubcommand(cfg SubcommandBuilder) *RootCLI {
 	configSection := fmt.Sprintf("%s.%s", c.appName, cfg.Name())
 	subV := c.v.Sub(configSection)
 	if subV == nil {

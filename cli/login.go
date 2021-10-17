@@ -27,10 +27,12 @@ var ErrPasswordMissing = errors.New("MissingPassword")
 // unspecified in neither command line nor configuration file.
 var ErrLoginURLMissing = errors.New("MissingLoginURL")
 
+// LoginHTTPError is an error object that returns on HTTP code error.
 type LoginHTTPError struct {
 	StatusCode int
 }
 
+// Error method prints error message of LoginHTTPError
 func (e LoginHTTPError) Error() string {
 	return fmt.Sprintf("HTTPLoginError:Code=%d", e.StatusCode)
 }

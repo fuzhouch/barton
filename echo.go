@@ -27,7 +27,7 @@ func NewWebApp(appName string) *WebApp {
 	return &WebApp{appName: appName}
 }
 
-// AppName setter sets app name for Echo engine. By defualt the name is
+// Name setter sets app name for Echo engine. By defualt the name is
 // set to Barton-Echo-App.
 func (c *WebApp) Name(name string) *WebApp {
 	c.appName = name

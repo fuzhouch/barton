@@ -43,7 +43,7 @@ func TestHTTPFormAuthLoginHandler(t *testing.T) {
 		return c.String(http.StatusOK, "hello!")
 	})
 
-	s := NewFormAuthConfig().
+	s := NewFormAuth().
 		NewGuardianStrategy(formValidate)
 	p := NewJWTGenPolicy(s)
 	e.POST("/weblogin", c.NewEchoLoginHandler(p))
@@ -115,7 +115,7 @@ func TestHTTPFormAuthLoginHandlerCustomizedFormKey(t *testing.T) {
 		return c.String(http.StatusOK, "hello!")
 	})
 
-	s := NewFormAuthConfig().UsernameKey("user").PasswordKey("pwd").
+	s := NewFormAuth().UsernameKey("user").PasswordKey("pwd").
 		NewGuardianStrategy(formValidate)
 	p := NewJWTGenPolicy(s)
 	e.POST("/weblogin", c.NewEchoLoginHandler(p))
@@ -170,7 +170,7 @@ func TestHTTPFormAuthParseFail(t *testing.T) {
 		return c.String(http.StatusOK, "hello!")
 	})
 
-	s := NewFormAuthConfig().
+	s := NewFormAuth().
 		UsernameKey("user").
 		PasswordKey("pwd").
 		NewGuardianStrategy(formValidate)
@@ -206,7 +206,7 @@ func TestHTTPFormAuthValidateFail(t *testing.T) {
 		return c.String(http.StatusOK, "hello!")
 	})
 
-	s := NewFormAuthConfig().
+	s := NewFormAuth().
 		UsernameKey("user").
 		PasswordKey("pwd").
 		NewGuardianStrategy(formValidate)
@@ -243,7 +243,7 @@ func TestHTTPFormAuthLoginHandlerGetForm(t *testing.T) {
 		return c.String(http.StatusOK, "hello!")
 	})
 
-	s := NewFormAuthConfig().UsernameKey("user").PasswordKey("pwd").
+	s := NewFormAuth().UsernameKey("user").PasswordKey("pwd").
 		NewGuardianStrategy(formValidate)
 	p := NewJWTGenPolicy(s)
 	e.GET("/weblogin", c.NewEchoLoginHandler(p))
