@@ -33,7 +33,7 @@ func formValidate(ctx context.Context, r *http.Request,
 // HTTP form to website.
 func TestHTTPFormAuthLoginHandler(t *testing.T) {
 	testKey := []byte("test123")
-	c := NewHMACJWTConfig(testKey).SigningMethod("HS384")
+	c := NewHMACJWTGen(testKey).SigningMethod("HS384")
 
 	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
@@ -105,7 +105,7 @@ func TestHTTPFormAuthLoginHandler(t *testing.T) {
 // form field name for username and password.
 func TestHTTPFormAuthLoginHandlerCustomizedFormKey(t *testing.T) {
 	testKey := []byte("test123")
-	c := NewHMACJWTConfig(testKey).SigningMethod("HS384")
+	c := NewHMACJWTGen(testKey).SigningMethod("HS384")
 
 	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
@@ -160,7 +160,7 @@ func TestHTTPFormAuthLoginHandlerCustomizedFormKey(t *testing.T) {
 // form will cause error returns.
 func TestHTTPFormAuthParseFail(t *testing.T) {
 	testKey := []byte("test123")
-	c := NewHMACJWTConfig(testKey).SigningMethod("HS384")
+	c := NewHMACJWTGen(testKey).SigningMethod("HS384")
 
 	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
@@ -196,7 +196,7 @@ func TestHTTPFormAuthParseFail(t *testing.T) {
 // password.
 func TestHTTPFormAuthValidateFail(t *testing.T) {
 	testKey := []byte("test123")
-	c := NewHMACJWTConfig(testKey).SigningMethod("HS384")
+	c := NewHMACJWTGen(testKey).SigningMethod("HS384")
 
 	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
@@ -233,7 +233,7 @@ func TestHTTPFormAuthValidateFail(t *testing.T) {
 // by posting HTTP form to website, when we use GET verb.
 func TestHTTPFormAuthLoginHandlerGetForm(t *testing.T) {
 	testKey := []byte("test123")
-	c := NewHMACJWTConfig(testKey).SigningMethod("HS384")
+	c := NewHMACJWTGen(testKey).SigningMethod("HS384")
 
 	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()

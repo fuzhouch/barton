@@ -10,9 +10,9 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// HMACJWTConfig provides JWT generation logic with symmetric
+// HMACJWTGen provides JWT generation logic with symmetric
 // encryption. By default it supports HS256, HS384 and HS512.
-type HMACJWTConfig struct {
+type HMACJWTGen struct {
 	signingMethod string
 	// TODO Let's double think about this: I lost type safety but
 	// gain ability to test a failed case in UT. Is it a good
@@ -21,10 +21,10 @@ type HMACJWTConfig struct {
 	contextKey string
 }
 
-// NewHMACJWTConfig creates a new configuration object to generate JWT
+// NewHMACJWTGen creates a new configuration object to generate JWT
 // token handler and middleware.
-func NewHMACJWTConfig(signingKey []byte) *HMACJWTConfig {
-	return &HMACJWTConfig{
+func NewHMACJWTGen(signingKey []byte) *HMACJWTGen {
+	return &HMACJWTGen{
 		signingMethod: "HS256",
 		signingKey:    signingKey,
 		contextKey:    "user", // Keep compatibility with Echo.
@@ -33,28 +33,28 @@ func NewHMACJWTConfig(signingKey []byte) *HMACJWTConfig {
 
 // SigningKey specifies signing key for JWT signing. The given secret
 // should not be shared with anyone.
-func (hc *HMACJWTConfig) SigningKey(secret []byte) *HMACJWTConfig {
+func (hc *HMACJWTGen) SigningKey(secret []byte) *HMACJWTGen {
 	hc.signingKey = secret
 	return hc
 }
 
 // SigningMethod specifies signing method. Supposed method is HS256,
 // HS384 and HS512.
-func (hc *HMACJWTConfig) SigningMethod(method string) *HMACJWTConfig {
+func (hc *HMACJWTGen) SigningMethod(method string) *HMACJWTGen {
 	hc.signingMethod = method
 	return hc
 }
 
 // ContextKey specifies the key name we use to lookup token object in
 // echo's Context object.
-func (hc *HMACJWTConfig) ContextKey(keyName string) *HMACJWTConfig {
+func (hc *HMACJWTGen) ContextKey(keyName string) *HMACJWTGen {
 	hc.contextKey = keyName
 	return hc
 }
 
 // NewEchoMiddleware returns a token validation middleware for Labstack
 // Echo framework.
-func (hc *HMACJWTConfig) NewEchoMiddleware() echo.MiddlewareFunc {
+func (hc *HMACJWTGen) NewEchoMiddleware() echo.MiddlewareFunc {
 	config := middleware.JWTConfig{
 		TokenLookup:   "header:Authorization",
 		AuthScheme:    "Bearer",
@@ -70,7 +70,7 @@ func (hc *HMACJWTConfig) NewEchoMiddleware() echo.MiddlewareFunc {
 }
 
 // A private function to generate JWT token from given user name.
-func (hc *HMACJWTConfig) token(exp int64, name string) (string, error) {
+func (hc *HMACJWTGen) token(exp int64, name string) (string, error) {
 	alg := jwt.GetSigningMethod(hc.signingMethod)
 	claims := jwt.MapClaims{
 		"exp":  exp,
@@ -92,7 +92,7 @@ type TokenResponseBody struct {
 // takes parameter p, an JWT generator policy object, and a
 // handlerIdentifier string to distinguish this handler when creating
 // Prometheus counters.
-func (hc *HMACJWTConfig) NewEchoLoginHandler(p *JWTGenPolicy,
+func (hc *HMACJWTGen) NewEchoLoginHandler(p *JWTGenPolicy,
 	handlerIdentifier ...string) echo.HandlerFunc {
 
 	effectivePrefix := ""

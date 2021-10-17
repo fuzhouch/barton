@@ -72,7 +72,7 @@ func TestEchoPrometheusIntegration(t *testing.T) {
 
 func TestEchoEnablePrometheusNoException(t *testing.T) {
 	testKey := []byte("test123")
-	c := NewHMACJWTConfig(testKey).SigningMethod("HS512")
+	c := NewHMACJWTGen(testKey).SigningMethod("HS512")
 	token := newToken(t, "HS512", testKey)
 
 	buf := bytes.NewBufferString("")
@@ -122,7 +122,7 @@ func TestEchoEnablePrometheusBecomeJWTException(t *testing.T) {
 	// workaround current behavior if we want a protected regular
 	// service except /metrics.
 	testKey := []byte("test123")
-	c := NewHMACJWTConfig(testKey).SigningMethod("HS512")
+	c := NewHMACJWTGen(testKey).SigningMethod("HS512")
 
 	buf := bytes.NewBufferString("")
 	zc := NewZerologConfig().SetWriter(buf).UseUTCTime()
