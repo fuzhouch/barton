@@ -81,11 +81,11 @@ func main() {
 
 	// Setup JWT authentication
 	testKey := []byte("keep-it-secret")
-	c := barton.NewHMACJWTConfig(testKey)
+	c := barton.NewHMACJWTGen(testKey)
 
 	// Create Echo app with Prometheus enabled.
 	// JWT token authentication is enabled explicitly.
-	e, cleanup := barton.NewWebAppBuilder("MyAPI").NewEcho()
+	e, cleanup := barton.NewWebApp("MyAPI").NewEcho()
 	defer cleanup()
 
 	e.Use(c.NewEchoMiddleware()) // API /test is under protection.
@@ -100,10 +100,34 @@ func main() {
 }
 ```
 
+## Build a command line client.
+
+Starting from version 0.3.0, Barton supports a ``cli`` module to allow
+building a CLI application to interact web server. It's provides two
+features:
+
+- A ``RootCLI`` object. It handles logging and configuration file.
+- A ``HTTPBasicLogin`` object. It sends username/password to a Barton
+  login API endpoint, and save JWT token.
+
+```go
+```
+
 For more examples of how to use Barton, please start from the unit test
 code.
 
 ## Changelog
+
+### v0.3.0
+
+* [X] Default login sub-command based on github.com/spf13/cobra
+* [X] Username/password basic HTTP login as command line options.
+* [X] URL as command line options.
+* [X] Subcommands support configuration file, following XDG.
+* [X] Default username/token configuration section in configuration file.
+* [X] Built-in login subcommand to send request and receive token.
+* [X] Type renaming to remove golint errors.
+* [ ] Bind login parameter to environment variables. Variable names can be configured.
 
 ### v0.2.0
 
