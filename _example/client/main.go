@@ -15,34 +15,35 @@ import (
 func main() {
 	// Setup Zerolog
 	zc := barton.NewZerologConfig().UseUTCTime()
-	zc.SetGlobalPolicy().SetGlobalLogger()
+	zc.SetGlobalPolicy().SetOffGlobalLogger()
 
 	login := cli.NewHTTPBasicLogin("login", "http://127.0.0.1:8080/login")
 
-	rootCLI := cli.NewRootCLI("testcli").
+	rootCLI, cleanup := cli.NewRootCLI("testcli").
 		SetLocalViperPolicy().
-		AddSubcommand(login)
+		AddSubcommand(login).
+		NewCobraE(func(c *cobra.Command, args []string) error {
+			// IMPORTANT This is an example to show usage of Barton
+			// APIs. For showing the main path it skips all error
+			// handling logic. This is bad practice for production
+			// use. Please properly handle errors instead of copy
+			// and paste code blindly.
+			token := viper.GetString("testcli.login.token")
+			req, _ := http.NewRequest("GET", "http://127.0.0.1:8080/v1/hello", nil)
+			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 
-	err := rootCLI.Execute(func(c *cobra.Command, args []string) error {
-		// IMPORTANT This is an example to show usage of Barton
-		// APIs. For showing the main path it skips all error
-		// handling logic. This is bad practice for production
-		// use. Please properly handle errors instead of copy
-		// and paste code blindly.
-		token := viper.GetString("testcli.login.token")
-		req, _ := http.NewRequest("GET", "http://127.0.0.1:8080/v1/hello", nil)
-		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+			cli := &http.Client{}
+			resp, _ := cli.Do(req)
+			defer resp.Body.Close()
 
-		cli := &http.Client{}
-		resp, _ := cli.Do(req)
-		defer resp.Body.Close()
+			answer, _ := ioutil.ReadAll(resp.Body)
+			fmt.Printf("Answer from server: %s\n", answer)
 
-		answer, _ := ioutil.ReadAll(resp.Body)
-		fmt.Printf("Answer from server: %s\n", answer)
+			return nil
+		})
+	defer cleanup()
 
-		return nil
-	})
-
+	err := rootCLI.Execute()
 	if err != nil {
 		fmt.Printf("Error on execution: %s.", err.Error())
 		os.Exit(1)

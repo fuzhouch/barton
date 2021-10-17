@@ -39,7 +39,7 @@ func (e LoginHTTPError) Error() string {
 
 type loginConfig struct {
 	Username string `mapstructure:"username"`
-	LoginURL string `mapstructure:"login-url"`
+	LoginURL string `mapstructure:"auth-url"`
 	JWTToken string `mapstructure:"token"`
 }
 
@@ -128,10 +128,10 @@ func (c *HTTPBasicLogin) NewCobraE() *cobra.Command {
 		"Password to perform HTTP basic login")
 	cmd.Flags().StringVarP(
 		&c.loginURL,
-		"login",
-		"g",
+		"auth",
+		"a",
 		"",
-		"Remote URL to get login token.")
+		"Remote URL to authenticate and grant tokens.")
 	return cmd
 }
 
@@ -235,7 +235,7 @@ func (c *HTTPBasicLogin) login() error {
 	}
 
 	c.v.Set(fmt.Sprintf("%s.username", c.section), c.username)
-	c.v.Set(fmt.Sprintf("%s.login-url", c.section), c.loginURL)
+	c.v.Set(fmt.Sprintf("%s.auth-url", c.section), c.loginURL)
 	c.v.Set(fmt.Sprintf("%s.token", c.section), c.jwtToken)
 
 	// TODO Here's a potential security hole, that when parent

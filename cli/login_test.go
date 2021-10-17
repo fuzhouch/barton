@@ -83,7 +83,7 @@ func TestConfigUsernameEmptyTriggerError(t *testing.T) {
 	v.SetFs(fs)
 	afero.WriteFile(fs, "config.yml", []byte(`
 test-app3:
-  login-url: http://127.0.0.1:5050`), 0644)
+  auth-url: http://127.0.0.1:5050`), 0644)
 
 	login := NewHTTPBasicLogin("login", "http://127.0.0.1:9091")
 	login.Viper(v, "test-app3")
@@ -156,11 +156,11 @@ func TestConfigLoginURLRead(t *testing.T) {
 	login.Viper(v, "test-app4")
 	login.AferoFS(fs)
 
-	// Case 1: login-url in config, unspecified in command line.
+	// Case 1: auth-url in config, unspecified in command line.
 	// Still pick configuration file.
 	afero.WriteFile(fs, "config.yml", []byte(`
 test-app4:
-  login-url: http://127.0.0.1:5050`), 0644)
+  auth-url: http://127.0.0.1:5050`), 0644)
 	v.ReadInConfig()
 
 	cmd := login.NewCobraE()
@@ -170,7 +170,7 @@ test-app4:
 	assert.Nil(t, err)
 	assert.Equal(t, "http://127.0.0.1:5050", login.loginURL)
 
-	// Case 2: login-url in config, also specified in command line.
+	// Case 2: auth-url in config, also specified in command line.
 	// Use command line version.
 	cmd = login.NewCobraE()
 	err = cmd.ParseFlags([]string{
@@ -182,7 +182,7 @@ test-app4:
 	assert.Nil(t, err)
 	assert.Equal(t, "http://127.0.0.1:8080/", login.loginURL)
 
-	// Case 3: login-url in config, also specified in command line
+	// Case 3: auth-url in config, also specified in command line
 	// with a value same with default values.
 	// Use command line version.
 	cmd = login.NewCobraE()
@@ -196,7 +196,7 @@ test-app4:
 	assert.Nil(t, err)
 	assert.Equal(t, "http://127.0.0.1:9090/", login.loginURL)
 
-	// Case 4: login-url is unspecified anywhere. Use default
+	// Case 4: auth-url is unspecified anywhere. Use default
 	// version. In this case we recreate a v2 Viper configuration to
 	// avoid settings from prevoius test
 	v2 := viper.New()
@@ -331,7 +331,7 @@ func TestWriteConfigOnSuccess(t *testing.T) {
 	assert.Nil(t, err)
 
 	username := v.GetString("test-app.username")
-	loginURL := v.GetString("test-app.login-url")
+	loginURL := v.GetString("test-app.auth-url")
 	jwtToken := v.GetString("test-app.token")
 	assert.Equal(t, "usr", username)
 	assert.Equal(t, mockServer.URL, loginURL)
@@ -344,7 +344,7 @@ func TestWriteConfigOnSuccess(t *testing.T) {
 	assert.True(t, strings.Contains(content,
 		"  token: mock_token_1"))
 	assert.True(t, strings.Contains(content,
-		fmt.Sprintf("  login-url: %s", mockServer.URL)))
+		fmt.Sprintf("  auth-url: %s", mockServer.URL)))
 	assert.True(t, strings.Contains(content, "  username: usr"))
 }
 
@@ -392,7 +392,7 @@ func TestWriteConfigErrorHandling(t *testing.T) {
 
 	// Also verify content of config.yml is unchanged.
 	username := v.GetString("test-app.username")
-	loginURL := v.GetString("test-app.login-url")
+	loginURL := v.GetString("test-app.auth-url")
 	jwtToken := v.GetString("test-app.token")
 	assert.Equal(t, "usr", username)
 	assert.Equal(t, mockServer.URL, loginURL)
@@ -405,7 +405,7 @@ func TestWriteConfigErrorHandling(t *testing.T) {
 	assert.False(t, strings.Contains(content,
 		"  token: mock_token_1"))
 	assert.False(t, strings.Contains(content,
-		fmt.Sprintf("  login-url: %s", mockServer.URL)))
+		fmt.Sprintf("  auth-url: %s", mockServer.URL)))
 	assert.False(t, strings.Contains(content, "  username: usr"))
 }
 
@@ -453,7 +453,7 @@ func TestClientStatusCodeErrorHandling(t *testing.T) {
 
 	// Parameter is not written.
 	username := v.GetString("test-app.username")
-	loginURL := v.GetString("test-app.login-url")
+	loginURL := v.GetString("test-app.auth-url")
 	jwtToken := v.GetString("test-app.token")
 	assert.Equal(t, "", username)
 	assert.Equal(t, "", loginURL)
@@ -467,7 +467,7 @@ func TestClientStatusCodeErrorHandling(t *testing.T) {
 	assert.False(t, strings.Contains(content,
 		"  token: mock_token_1"))
 	assert.False(t, strings.Contains(content,
-		fmt.Sprintf("  login-url: %s", mockServer.URL)))
+		fmt.Sprintf("  auth-url: %s", mockServer.URL)))
 	assert.False(t, strings.Contains(content, "  username: usr"))
 }
 
@@ -505,7 +505,7 @@ func TestClientContentUnmarshalErrorHandling(t *testing.T) {
 
 	// Parameter is not written.
 	username := v.GetString("test-app.username")
-	loginURL := v.GetString("test-app.login-url")
+	loginURL := v.GetString("test-app.auth-url")
 	jwtToken := v.GetString("test-app.token")
 	assert.Equal(t, "", username)
 	assert.Equal(t, "", loginURL)
@@ -519,7 +519,7 @@ func TestClientContentUnmarshalErrorHandling(t *testing.T) {
 	assert.False(t, strings.Contains(content,
 		"  token: mock_token_1"))
 	assert.False(t, strings.Contains(content,
-		fmt.Sprintf("  login-url: %s", mockServer.URL)))
+		fmt.Sprintf("  auth-url: %s", mockServer.URL)))
 	assert.False(t, strings.Contains(content, "  username: usr"))
 }
 
@@ -609,7 +609,7 @@ func TestCallAPIHTTPRequestReadBodyError(t *testing.T) {
 
 	// Parameter is not written.
 	username := v.GetString("test-app.username")
-	loginURL := v.GetString("test-app.login-url")
+	loginURL := v.GetString("test-app.auth-url")
 	jwtToken := v.GetString("test-app.token")
 	assert.Equal(t, "", username)
 	assert.Equal(t, "", loginURL)
@@ -623,6 +623,6 @@ func TestCallAPIHTTPRequestReadBodyError(t *testing.T) {
 	assert.False(t, strings.Contains(content,
 		"  token: mock_token_1"))
 	assert.False(t, strings.Contains(content,
-		fmt.Sprintf("  login-url: %s", mockServer.URL)))
+		fmt.Sprintf("  auth-url: %s", mockServer.URL)))
 	assert.False(t, strings.Contains(content, "  username: usr"))
 }
