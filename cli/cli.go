@@ -160,7 +160,7 @@ func (c *RootCLI) loadLog(cc *cobra.Command) (func(), error) {
 		os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
 		log.Error().Err(err).Msg("SetLog.OpenFile.Fail")
-		return func() {}, err
+		return nil, err
 	}
 
 	barton.NewZerologConfig().
@@ -182,7 +182,7 @@ func (c *RootCLI) loadConfig(cc *cobra.Command) (func(), error) {
 			log.Error().
 				Err(err).
 				Msg("ReadInConfig.Preset.Fail")
-			return func() {}, err
+			return nil, err
 		}
 		return func() {}, nil
 	}
@@ -196,7 +196,7 @@ func (c *RootCLI) loadConfig(cc *cobra.Command) (func(), error) {
 			Err(err).
 			Str("config", c.configFile).
 			Msg("ReadConfig.Fail")
-		return func() {}, err
+		return nil, err
 	}
 
 	return func() {}, nil
