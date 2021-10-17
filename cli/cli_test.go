@@ -111,14 +111,17 @@ func TestUserConfigDirReturnError(t *testing.T) {
 	home := os.Getenv("HOME")
 	plan9Home := os.Getenv("home")
 	appDir := os.Getenv("AppData")
+	xdgConfigHome := os.Getenv("XDG_CONFIG_HOME")
 	defer os.Setenv("HOME", home)
 	defer os.Setenv("home", plan9Home)
 	defer os.Setenv("AppData", appDir)
+	defer os.Setenv("XDG_CONFIG_HOME", xdgConfigHome)
 
 	// Now, trigger an error
 	os.Setenv("HOME", "")
 	os.Setenv("AppDir", "")
 	os.Setenv("home", "")
+	os.Setenv("XDG_CONFIG_HOME", "") // Github Actions server ues it.
 
 	// A behavior of viper is to convert given relative path to
 	// absolute.
