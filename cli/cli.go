@@ -66,42 +66,63 @@ func (c *RootCLI) Viper(v *viper.Viper) *RootCLI {
 // CobraRunEFunc is the type of Cobra's command processor function, used
 // by cobra.Command.RunE.
 type CobraRunEFunc = func(*cobra.Command, []string) error
+type CleanupFunc = func()
 
-// NewCobraE creates a Cobra's cobra.Command object that represents
+// Execute methods creates a Cobra's cobra.Command object that represents
 // root command line interface. It takes function object to fill
 // cobra's RunE field. If there's no speical step to process, pass nil.
-func (c *RootCLI) NewCobraE(run CobraRunEFunc) *cobra.Command {
+//
+// Besides returning cobra.Command, this function also returns a cleanup
+// function, which should be called before program exits. For RootCLI
+// case, it closes log files and configuration file properly.
+//
+// The reason we introduce this cleanup function is because cobra does
+// not offer a good way to handle it properly. By the time the code is
+// written (2021-10), Cobra 1.2.1 offers only PersisentPreRunE hook to
+// allow subcommands run a hook from root. However, this does not work
+// for our scenario because the corresponding API, PersistentPostRunE,
+// is not invoked on completion of subcommand. Thus, it's necessary
+// to wrap the calling sequence to ensure config files or logs are
+// properly closed without losing data.
+func (c *RootCLI) NewCobraE(run CobraRunEFunc) (*cobra.Command, CleanupFunc) {
+	cleanupFunc := func() { log.Info().Msg("Cleanup.NoAction.Bye") }
 	cmd := &cobra.Command{
 		Use:   c.appName,
 		Short: fmt.Sprintf("CLI for %s", c.appName),
 		Long:  fmt.Sprintf("CLI for %s", c.appName),
 		RunE: func(cc *cobra.Command, args []string) error {
-			logCleanup, err := c.loadLog(cc)
-			if err != nil {
-				return err
-			}
-			defer logCleanup()
-
-			configCleanup, err := c.loadConfig(cc)
-			if err != nil {
-				return err
-			}
-			defer configCleanup()
-
 			if run != nil {
 				return run(cc, args)
 			}
 			return nil
 		},
+		PersistentPreRunE: func(cc *cobra.Command, args []string) error {
+			logCleanup, err := c.loadLog(cc)
+			if err != nil {
+				return err
+			}
+
+			configCleanup, err := c.loadConfig(cc)
+			if err != nil {
+				return err
+			}
+
+			cleanupFunc = func() {
+				log.Info().Msg("Cleanup.Bye")
+				configCleanup()
+				logCleanup()
+			}
+			return nil
+		},
 	}
 
-	cmd.Flags().StringVarP(
+	cmd.PersistentFlags().StringVarP(
 		&c.configFile,
 		"config",
 		"c",
 		"",
 		"Path to config file. Omitted to use default search paths.")
-	cmd.Flags().StringVarP(
+	cmd.PersistentFlags().StringVarP(
 		&c.logFile,
 		"log",
 		"l",
@@ -119,11 +140,10 @@ func (c *RootCLI) NewCobraE(run CobraRunEFunc) *cobra.Command {
 	// want to introduce a dependency between logging and
 	// configuration file. Thus, an error when reading confiugration
 	// file can always be logged.
-
 	for _, sub := range c.subCommands {
 		cmd.AddCommand(sub.NewCobraE())
 	}
-	return cmd
+	return cmd, func() { cleanupFunc() }
 }
 
 func (c *RootCLI) loadLog(cc *cobra.Command) (func(), error) {
@@ -165,17 +185,9 @@ func (c *RootCLI) loadConfig(cc *cobra.Command) (func(), error) {
 	}
 
 	log.Info().Str("config", c.configFile).Msg("ReadConfig.Explicit")
-	fd, err := c.fs.Open(c.configFile)
-	if err != nil {
-		log.Error().
-			Err(err).
-			Str("config", c.configFile).
-			Msg("FsOpen.Explicit.Fail")
-		return func() {}, err
-	}
-	defer fd.Close()
 
-	err = c.v.ReadConfig(fd)
+	c.v.SetConfigFile(c.configFile)
+	err := c.v.ReadInConfig()
 	if err != nil {
 		log.Error().
 			Err(err).
@@ -222,20 +234,15 @@ func (c *RootCLI) SetLocalViperPolicy() *RootCLI {
 // allows subcommand share configuration reading (via Viper) and file
 // system abstraction via Afero. Internally, RootCLI uses a map to keep
 // a reference of each subcommand.
-func (c *RootCLI) AddSubcommand(cfg SubcommandBuilder) *RootCLI {
-	configSection := fmt.Sprintf("%s.%s", c.appName, cfg.Name())
-	subV := c.v.Sub(configSection)
-	if subV == nil {
-		c.v.Set(configSection, make(map[string]interface{}))
-		subV = c.v.Sub(configSection)
-	}
-	cfg.Viper(subV, configSection)
-	cfg.AferoFS(c.fs)
-	_, exists := c.subCommands[strings.ToLower(cfg.Name())]
-	c.subCommands[strings.ToLower(cfg.Name())] = cfg
-	log.Info().
-		Bool("replace", exists).
-		Str("name", cfg.Name()).
-		Msg("AddSubcommand")
+func (c *RootCLI) AddSubcommand(child SubcommandBuilder) *RootCLI {
+	configSection := fmt.Sprintf("%s.%s", c.appName, child.Name())
+	child.Viper(c.v, configSection)
+	child.AferoFS(c.fs)
+	// Supposed I should write a log here but it will cause an
+	// annoying result, because in command line scenario log file
+	// initialization happens after AddSubcommand(), which always
+	// write to stdout.
+	// _, exists := c.subCommands[strings.ToLower(child.Name())]
+	c.subCommands[strings.ToLower(child.Name())] = child
 	return c
 }

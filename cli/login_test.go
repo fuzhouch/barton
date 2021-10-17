@@ -29,13 +29,15 @@ func TestSubConfigCreateDefaultDatablock(t *testing.T) {
 		AferoFS(fs).
 		Viper(v).
 		AddSubcommand(login)
-	assert.NotEqual(t, v, login.v)
+	assert.Equal(t, v, login.v)
 
-	cmd := root.NewCobraE(nil)
+	cmd, cleanupFunc := root.NewCobraE(nil)
+	defer cleanupFunc()
+
 	cmd.SetArgs([]string{"login", "-u", "1", "-p", "2"})
 	err := cmd.Execute()
 	assert.NotNil(t, err) // Expected: We don't have a valid URL.
-	assert.NotNil(t, v.Get("test-app.login"))
+	assert.Nil(t, v.Get("test-app.login"))
 	assert.Nil(t, v.Get("test-app.login.username"))
 	assert.Nil(t, v.Get("test-app.login.token"))
 	// All values are empty. The test is set to pass when
@@ -268,7 +270,7 @@ test-app3:
 	cmd.SetArgs([]string{"--username", "u", "--password", "pwd"})
 	err := cmd.Execute()
 	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(buf.String(), "NewRequestFail"),
+	assert.True(t, strings.Contains(buf.String(), "NewRequest.Fail"),
 		"NewRequestFail log line should exist")
 }
 
@@ -525,6 +527,45 @@ type errReader int
 
 func (errReader) Read(p []byte) (int, error) {
 	return 0, errors.New("Test error")
+}
+
+func TestCallAPIFailOnSendRequestErrorHandling(t *testing.T) {
+	mockServer := httptest.NewServer(
+		http.HandlerFunc(
+			func(w http.ResponseWriter, r *http.Request) {
+				response := barton.TokenResponseBody{
+					Token:  "mock_token_1",
+					Expire: time.Now().Unix(),
+				}
+				body, _ := json.Marshal(response)
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = w.Write(body)
+			}))
+	defer mockServer.Close()
+
+	b := bytes.NewBufferString("")
+	barton.NewZerologConfig().SetWriter(b).SetGlobalLogger()
+
+	fs := afero.NewMemMapFs()
+	afero.WriteFile(fs, "./config.yml", []byte("test-app:"), 0644)
+
+	v := viper.New()
+	v.SetConfigFile("./config.yml")
+	v.SetFs(fs)
+	v.ReadInConfig()
+
+	login := NewHTTPBasicLogin("login", mockServer.URL)
+	login.Viper(v, "test-app")
+	login.AferoFS(fs)
+
+	badBuf := errReader(0)
+	badReq, err := http.NewRequest("POST", mockServer.URL, badBuf)
+	assert.Nil(t, err)
+	err = login.callAPI(badReq)
+	assert.NotNil(t, err)
+
+	content := b.String()
+	assert.True(t, strings.Contains(content, "HTTPRequest.Send.Fail"))
 }
 
 // TestCallAPIHTTPRequestReadBodyError verifies login subcommand handles

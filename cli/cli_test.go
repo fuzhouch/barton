@@ -23,22 +23,6 @@ func TestDefaultClientCreated(t *testing.T) {
 	assert.Equal(t, "test-app", cfg.appName)
 }
 
-func TestAddLoginSubcommand(t *testing.T) {
-	sub := NewHTTPBasicLogin("login", "http://127.0.0.1")
-	login := sub.NewCobraE()
-	root := NewRootCLI("test-app").NewCobraE(nil)
-	root.AddCommand(login)
-
-	b := bytes.NewBufferString("")
-	root.SetOut(b)
-	root.SetArgs([]string{"login", "--help"})
-
-	root.Execute()
-	out := b.String()
-	assert.True(t, strings.Contains(out,
-		"Login command with HTTP basic login"))
-}
-
 // TestRunWithExplicitConfigFileInOptions verifies an explicit
 // configuration file specified in command line can be opened and read.
 func TestRunWithExplicitConfigFileInOptions(t *testing.T) {
@@ -47,11 +31,12 @@ func TestRunWithExplicitConfigFileInOptions(t *testing.T) {
 	v := viper.New()
 	v.SetFs(fs)
 
-	root := NewRootCLI("test-app").
+	root, cleanupFunc := NewRootCLI("test-app").
 		AferoFS(fs).
 		Viper(v).
 		SetLocalViperPolicy().
 		NewCobraE(nil)
+	defer cleanupFunc()
 
 	root.SetArgs([]string{"--config", "./test.yml"})
 	root.Execute()
@@ -77,11 +62,12 @@ func TestDefaultConfigFileLocalConfigFirst(t *testing.T) {
 	v := viper.New()
 	v.SetFs(fs)
 
-	root := NewRootCLI("test-app").
+	root, cleanupFunc := NewRootCLI("test-app").
 		AferoFS(fs).
 		Viper(v).
 		SetLocalViperPolicy().
 		NewCobraE(nil)
+	defer cleanupFunc()
 
 	root.SetArgs([]string{})
 	root.Execute()
@@ -101,11 +87,12 @@ func TestDefaultConfigFileFallbackToEtc(t *testing.T) {
 	v := viper.New()
 	v.SetFs(fs)
 
-	root := NewRootCLI("test-app").
+	root, cleanupFunc := NewRootCLI("test-app").
 		AferoFS(fs).
 		Viper(v).
 		SetLocalViperPolicy().
 		NewCobraE(nil)
+	defer cleanupFunc()
 
 	root.SetArgs([]string{})
 	root.Execute()
@@ -146,11 +133,12 @@ func TestUserConfigDirReturnError(t *testing.T) {
 	v := viper.New()
 	v.SetFs(fs)
 
-	root := NewRootCLI("test-app").
+	root, cleanupFunc := NewRootCLI("test-app").
 		AferoFS(fs).
 		Viper(v).
 		SetLocalViperPolicy().
 		NewCobraE(nil)
+	defer cleanupFunc()
 
 	root.SetArgs([]string{})
 	root.Execute()
@@ -167,11 +155,12 @@ func TestDefaultConfigReadFileOnNoFileExist(t *testing.T) {
 	v := viper.New()
 	v.SetFs(fs)
 
-	root := NewRootCLI("test-app").
+	root, cleanupFunc := NewRootCLI("test-app").
 		AferoFS(fs).
 		Viper(v).
 		SetLocalViperPolicy().
 		NewCobraE(nil)
+	defer cleanupFunc()
 
 	b := bytes.NewBufferString("")
 	barton.NewZerologConfig().SetWriter(b).SetGlobalLogger()
@@ -193,11 +182,12 @@ func TestExplicitConfigReadFail(t *testing.T) {
 	v := viper.New()
 	v.SetFs(fs)
 
-	root := NewRootCLI("test-app").
+	root, cleanupFunc := NewRootCLI("test-app").
 		AferoFS(fs).
 		Viper(v).
 		SetLocalViperPolicy().
 		NewCobraE(nil)
+	defer cleanupFunc()
 
 	b := bytes.NewBufferString("")
 	barton.NewZerologConfig().SetWriter(b).SetGlobalLogger()
@@ -207,7 +197,7 @@ func TestExplicitConfigReadFail(t *testing.T) {
 	assert.NotNil(t, err)
 	out := b.String()
 	assert.True(t, strings.Contains(out, "ReadConfig.Explicit"))
-	assert.True(t, strings.Contains(out, "FsOpen.Explicit.Fail"))
+	assert.True(t, strings.Contains(out, "ReadConfig.Fail"))
 }
 
 // TestExplicitConfigReadContentFail verifies explicit configuration
@@ -220,11 +210,12 @@ func TestExplicitConfigReadContentFail(t *testing.T) {
 	v := viper.New()
 	v.SetFs(fs)
 
-	root := NewRootCLI("test-app").
+	root, cleanupFunc := NewRootCLI("test-app").
 		AferoFS(fs).
 		Viper(v).
 		SetLocalViperPolicy().
 		NewCobraE(nil)
+	defer cleanupFunc()
 
 	b := bytes.NewBufferString("")
 	barton.NewZerologConfig().SetWriter(b).SetGlobalLogger()
@@ -247,11 +238,12 @@ func TestExplicitLogCannotOpenReturnError(t *testing.T) {
 	v := viper.New()
 	v.SetFs(fs)
 
-	root := NewRootCLI("test-app").
+	root, cleanupFunc := NewRootCLI("test-app").
 		AferoFS(fs).
 		Viper(v).
 		SetLocalViperPolicy().
 		NewCobraE(nil)
+	defer cleanupFunc()
 
 	b := bytes.NewBufferString("")
 	barton.NewZerologConfig().SetWriter(b).SetGlobalLogger()
@@ -274,11 +266,12 @@ func TestExplicitLogOpenOnNotExist(t *testing.T) {
 	v := viper.New()
 	v.SetFs(fs)
 
-	root := NewRootCLI("test-app").
+	root, cleanupFunc := NewRootCLI("test-app").
 		AferoFS(fs).
 		Viper(v).
 		SetLocalViperPolicy().
 		NewCobraE(nil)
+	defer cleanupFunc()
 
 	root.SetArgs([]string{"--log", "open-by-default.log"})
 	err = root.Execute()
@@ -302,11 +295,12 @@ func TestDefaultLogFollowGlobalSetting(t *testing.T) {
 	b := bytes.NewBufferString("")
 	barton.NewZerologConfig().SetWriter(b).SetGlobalLogger()
 
-	root := NewRootCLI("test-app").
+	root, cleanupFunc := NewRootCLI("test-app").
 		AferoFS(fs).
 		Viper(v).
 		SetLocalViperPolicy().
 		NewCobraE(nil)
+	defer cleanupFunc()
 
 	root.SetArgs([]string{""})
 	err = root.Execute()
@@ -330,7 +324,7 @@ func TestExplicitRunEFunctionIsCalled(t *testing.T) {
 	b := bytes.NewBufferString("")
 	barton.NewZerologConfig().SetWriter(b).SetGlobalLogger()
 
-	root := NewRootCLI("test-app").
+	root, cleanupFunc := NewRootCLI("test-app").
 		AferoFS(fs).
 		Viper(v).
 		SetLocalViperPolicy().
@@ -338,6 +332,7 @@ func TestExplicitRunEFunctionIsCalled(t *testing.T) {
 			log.Info().Msg("InRunE")
 			return nil
 		})
+	defer cleanupFunc()
 
 	root.SetArgs([]string{""})
 	err = root.Execute()
@@ -345,4 +340,59 @@ func TestExplicitRunEFunctionIsCalled(t *testing.T) {
 
 	out := b.String()
 	assert.True(t, strings.Contains(out, "InRunE"))
+}
+
+// TestLogCleanupFuncCalled verifies a cleanup function with proper log
+// and config cleanup step is called when cmd.Execute() is invoked.
+func TestLogCleanupFuncCalled(t *testing.T) {
+	b := bytes.NewBufferString("")
+	barton.NewZerologConfig().SetWriter(b).SetGlobalLogger()
+
+	fs := afero.NewMemMapFs()
+	afero.WriteFile(fs, "./test.yml", []byte("key: config"), 0644)
+	v := viper.New()
+	v.SetFs(fs)
+
+	root, cleanupFunc := NewRootCLI("test-app").
+		AferoFS(fs).
+		Viper(v).
+		SetLocalViperPolicy().
+		NewCobraE(nil)
+	root.SetArgs([]string{"--config", "./test.yml"})
+
+	root.Execute()
+
+	value := v.GetString("key")
+	assert.Equal(t, "config", value)
+
+	cleanupFunc()
+
+	content := b.String()
+	fmt.Printf("%s\n", content)
+	assert.True(t, strings.Contains(content, "Cleanup.Bye"))
+}
+
+// TestLogDefaultCleanupFuncCalled verifies a default, no-action
+// cleanup function is called if there's no cmd.Execute() invoked.
+func TestLogDefaultCleanupFuncCalled(t *testing.T) {
+	b := bytes.NewBufferString("")
+	barton.NewZerologConfig().SetWriter(b).SetGlobalLogger()
+
+	fs := afero.NewMemMapFs()
+	afero.WriteFile(fs, "./test.yml", []byte("key: config"), 0644)
+	v := viper.New()
+	v.SetFs(fs)
+
+	root, cleanupFunc := NewRootCLI("test-app").
+		AferoFS(fs).
+		Viper(v).
+		SetLocalViperPolicy().
+		NewCobraE(nil)
+	root.SetArgs([]string{"--config", "./test.yml"})
+
+	cleanupFunc()
+
+	content := b.String()
+	fmt.Printf("%s\n", content)
+	assert.True(t, strings.Contains(content, "Cleanup.NoAction.Bye"))
 }

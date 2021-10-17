@@ -140,7 +140,7 @@ func (c *HTTPBasicLogin) callAPI(req *http.Request) error {
 
 	resp, err := c.cli.Do(req)
 	if err != nil {
-		log.Error().Err(err).Msg("HTTPRequest.Send")
+		log.Error().Err(err).Msg("HTTPRequest.Send.Fail")
 		return err
 	}
 	defer resp.Body.Close()
@@ -225,7 +225,7 @@ func (c *HTTPBasicLogin) login() error {
 
 	req, err := http.NewRequest("POST", c.loginURL, nil)
 	if err != nil {
-		log.Error().Err(err).Msg("NewRequestFail")
+		log.Error().Err(err).Msg("NewRequest.Fail")
 		return err
 	}
 
@@ -246,7 +246,8 @@ func (c *HTTPBasicLogin) login() error {
 	// client application does not have enough knowledge to decide
 	// which config file path should be considered dangerous.
 	// Let's set it as is and see what we can think of.
-	err = c.v.WriteConfig()
+	configFileSelected := c.v.ConfigFileUsed()
+	err = c.v.WriteConfigAs(configFileSelected)
 	if err != nil {
 		log.Error().Err(err).Msg("WriteConfig")
 		return err
