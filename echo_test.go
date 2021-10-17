@@ -19,9 +19,9 @@ func TestEchoNameChange(t *testing.T) {
 	zc := NewZerologConfig().SetWriter(buf).UseUTCTime()
 	zc.SetGlobalPolicy().SetGlobalLogger()
 
-	b := NewWebAppBuilder("BartonTest")
+	b := NewWebApp("BartonTest")
 	assert.Equal(t, "BartonTest", b.appName)
-	b.AppName("SetANewName")
+	b.Name("SetANewName")
 	assert.Equal(t, "SetANewName", b.appName)
 	e, cleanup := b.NewEcho()
 	defer cleanup()
@@ -52,7 +52,7 @@ func TestEchoPrometheusIntegration(t *testing.T) {
 	// inside Promethues library complaining duplicated registration
 	// attempts. This is because Prometheus registration is done in
 	// global namespace.
-	e, cleanup := NewWebAppBuilder("BartonTest").NewEcho()
+	e, cleanup := NewWebApp("BartonTest").NewEcho()
 	defer cleanup()
 
 	// Perform an HTTP call
@@ -72,7 +72,7 @@ func TestEchoPrometheusIntegration(t *testing.T) {
 
 func TestEchoEnablePrometheusNoException(t *testing.T) {
 	testKey := []byte("test123")
-	c := NewHMACJWTConfig(testKey).SigningMethod("HS512")
+	c := NewHMACJWTGen(testKey).SigningMethod("HS512")
 	token := newToken(t, "HS512", testKey)
 
 	buf := bytes.NewBufferString("")
@@ -85,7 +85,7 @@ func TestEchoEnablePrometheusNoException(t *testing.T) {
 	// inside Promethues library complaining duplicated registration
 	// attempts. This is because Prometheus registration is done in
 	// global namespace.
-	e, cleanup := NewWebAppBuilder("BartonTest").NewEcho()
+	e, cleanup := NewWebApp("BartonTest").NewEcho()
 	defer cleanup()
 
 	e.Use(c.NewEchoMiddleware())
@@ -122,14 +122,14 @@ func TestEchoEnablePrometheusBecomeJWTException(t *testing.T) {
 	// workaround current behavior if we want a protected regular
 	// service except /metrics.
 	testKey := []byte("test123")
-	c := NewHMACJWTConfig(testKey).SigningMethod("HS512")
+	c := NewHMACJWTGen(testKey).SigningMethod("HS512")
 
 	buf := bytes.NewBufferString("")
 	zc := NewZerologConfig().SetWriter(buf).UseUTCTime()
 	zc.SetGlobalPolicy()
 	zc.SetGlobalLogger()
 
-	e, cleanup := NewWebAppBuilder("BartonTest").NewEcho()
+	e, cleanup := NewWebApp("BartonTest").NewEcho()
 	defer cleanup()
 
 	g := e.Group("/v1", c.NewEchoMiddleware())

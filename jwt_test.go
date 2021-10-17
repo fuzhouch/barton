@@ -43,7 +43,7 @@ func newToken(t *testing.T, method string, key []byte) string {
 
 func TestHMACJWTDefaultSetting(t *testing.T) {
 	testKey := "test123"
-	c := NewHMACJWTConfig([]byte(testKey))
+	c := NewHMACJWTGen([]byte(testKey))
 	assert.Equal(t, c.signingMethod, "HS256")
 	if signingKeyBytes, ok := c.signingKey.([]byte); ok {
 		assert.Equal(t, string(signingKeyBytes), testKey)
@@ -63,9 +63,9 @@ func TestHMACJWTDefaultSetting(t *testing.T) {
 
 func TestEchoEnableJWTPreventNoJWTAccess(t *testing.T) {
 	testKey := "test123"
-	c := NewHMACJWTConfig([]byte(testKey))
+	c := NewHMACJWTGen([]byte(testKey))
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
 	e.Use(c.NewEchoMiddleware())
@@ -81,9 +81,9 @@ func TestEchoEnableJWTPreventNoJWTAccess(t *testing.T) {
 
 func TestEchoEnableJWTPreventInvalidJWTAccess(t *testing.T) {
 	testKey := []byte("test123")
-	c := NewHMACJWTConfig(testKey)
+	c := NewHMACJWTGen(testKey)
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
 	e.Use(c.NewEchoMiddleware())
@@ -115,9 +115,9 @@ func TestEchoEnableJWTPreventInvalidJWTAccess(t *testing.T) {
 
 func TestEchoEnableJWTAllowValidToken(t *testing.T) {
 	testKey := []byte("test123")
-	c := NewHMACJWTConfig(testKey).SigningMethod("HS384")
+	c := NewHMACJWTGen(testKey).SigningMethod("HS384")
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	e.Use(c.NewEchoMiddleware())
 	defer cleanup()
 
@@ -201,9 +201,9 @@ func TestEchoJWTLoginHandler(t *testing.T) {
 	zc.SetGlobalPolicy().SetGlobalLogger()
 
 	testKey := []byte("test123")
-	c := NewHMACJWTConfig(testKey).SigningMethod("HS384")
+	c := NewHMACJWTGen(testKey).SigningMethod("HS384")
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
 	g := e.Group("/v1", c.NewEchoMiddleware())
@@ -231,7 +231,7 @@ func TestEchoJWTLoginHandler(t *testing.T) {
 
 	// JWT token is successfully returned
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	tokenBody := tokenBody{}
+	tokenBody := TokenResponseBody{}
 	json.Unmarshal(answer, &tokenBody)
 	values := strings.Split(tokenBody.Token, ".")
 
@@ -289,9 +289,9 @@ func TestEchoReturnJWTTokenCustomizedLogs(t *testing.T) {
 	zc.SetGlobalPolicy().SetGlobalLogger()
 
 	testKey := []byte("test123")
-	c := NewHMACJWTConfig(testKey).SigningMethod("HS384")
+	c := NewHMACJWTGen(testKey).SigningMethod("HS384")
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
 	p := newBasicAuthPolicy().TokenIssuedLogMsg("Bravo!")
@@ -314,7 +314,7 @@ func TestEchoReturnJWTTokenCustomizedLogs(t *testing.T) {
 
 	// JWT token is successfully returned
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	tokenBody := tokenBody{}
+	tokenBody := TokenResponseBody{}
 	json.Unmarshal(answer, &tokenBody)
 	values := strings.Split(tokenBody.Token, ".")
 
@@ -350,9 +350,9 @@ func TestEchoBadAuthenticationNoLog(t *testing.T) {
 	zc.SetGlobalPolicy().SetGlobalLogger()
 
 	testKey := []byte("test123")
-	c := NewHMACJWTConfig(testKey).SigningMethod("HS256")
+	c := NewHMACJWTGen(testKey).SigningMethod("HS256")
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
 	p := newBasicAuthPolicy()
@@ -393,9 +393,9 @@ func TestEchoBadAuthenticationPrintLog(t *testing.T) {
 	zc.SetGlobalPolicy().SetGlobalLogger()
 
 	testKey := []byte("test123")
-	c := NewHMACJWTConfig(testKey).SigningMethod("HS256")
+	c := NewHMACJWTGen(testKey).SigningMethod("HS256")
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
 	p := newBasicAuthPolicy().PrintAuthFailLog(true)
@@ -437,9 +437,9 @@ func TestEchoBadAuthenticationPrintCustomizedLog(t *testing.T) {
 	zc.SetGlobalPolicy().SetGlobalLogger()
 
 	testKey := []byte("test123")
-	c := NewHMACJWTConfig(testKey).SigningMethod("HS256")
+	c := NewHMACJWTGen(testKey).SigningMethod("HS256")
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
 	p := newBasicAuthPolicy().
@@ -481,9 +481,9 @@ func TestEchoReturnJWTTokenWithShorterExpireSpan(t *testing.T) {
 	zc.SetGlobalPolicy().SetGlobalLogger()
 
 	testKey := []byte("test123")
-	c := NewHMACJWTConfig(testKey).SigningMethod("HS384")
+	c := NewHMACJWTGen(testKey).SigningMethod("HS384")
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
 	g := e.Group("/v1", c.NewEchoMiddleware())
@@ -512,7 +512,7 @@ func TestEchoReturnJWTTokenWithShorterExpireSpan(t *testing.T) {
 
 	// JWT token is successfully returned
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	tokenBody := tokenBody{}
+	tokenBody := TokenResponseBody{}
 	json.Unmarshal(answer, &tokenBody)
 	values := strings.Split(tokenBody.Token, ".")
 
@@ -563,9 +563,9 @@ func TestEchoJWTGenFailure(t *testing.T) {
 	zc.SetGlobalPolicy().SetGlobalLogger()
 
 	testKey := []byte("key123") // Empty key causes signing falure
-	c := NewHMACJWTConfig(testKey).SigningMethod("HS256")
+	c := NewHMACJWTGen(testKey).SigningMethod("HS256")
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
 	p := newBasicAuthPolicy()
@@ -606,11 +606,11 @@ func TestEchoJWTGenFailure(t *testing.T) {
 // as "user".
 func TestEchoLookupJWTTokenFromContext(t *testing.T) {
 	testKey := []byte("test123")
-	c := NewHMACJWTConfig(testKey).SigningMethod("HS384")
+	c := NewHMACJWTGen(testKey).SigningMethod("HS384")
 	token, err := c.token(time.Now().Add(time.Hour*1).Unix(), "tu")
 	assert.Nil(t, err)
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
 	e.Use(c.NewEchoMiddleware())
@@ -644,13 +644,13 @@ func TestEchoLookupJWTTokenFromContext(t *testing.T) {
 // the lookup key name in context is customized.
 func TestEchoLookupJWTTokenFromContextWithCustomizedKey(t *testing.T) {
 	testKey := []byte("test123")
-	c := NewHMACJWTConfig(testKey).
+	c := NewHMACJWTGen(testKey).
 		SigningMethod("HS384").
 		ContextKey("context-key")
 	token, err := c.token(time.Now().Add(time.Hour*1).Unix(), "tu2")
 	assert.Nil(t, err)
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
 	e.Use(c.NewEchoMiddleware())
@@ -683,9 +683,9 @@ func TestEchoLookupJWTTokenFromContextWithCustomizedKey(t *testing.T) {
 // prefix always start from Barton_.
 func TestEchoJWTMetricsDefaultName(t *testing.T) {
 	testKey := []byte("key123") // Empty key causes signing falure
-	c := NewHMACJWTConfig(testKey).SigningMethod("HS256")
+	c := NewHMACJWTGen(testKey).SigningMethod("HS256")
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
 	p := newBasicAuthPolicy()
@@ -733,9 +733,9 @@ func TestEchoJWTMetricsDefaultName(t *testing.T) {
 // auth error can be printed.
 func TestEchoJWTMetricsCustomizedName(t *testing.T) {
 	testKey := []byte("key123") // Empty key causes signing falure
-	c := NewHMACJWTConfig(testKey).SigningMethod("HS256")
+	c := NewHMACJWTGen(testKey).SigningMethod("HS256")
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
 	p := newBasicAuthPolicy()
@@ -788,9 +788,9 @@ func TestEchoJWTMetricsMultiplePrefixTakeOne(t *testing.T) {
 	zc.SetGlobalPolicy().SetGlobalLogger()
 
 	testKey := []byte("key123") // Empty key causes signing falure
-	c := NewHMACJWTConfig(testKey).SigningMethod("HS256")
+	c := NewHMACJWTGen(testKey).SigningMethod("HS256")
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
 	p := newBasicAuthPolicy()
@@ -837,9 +837,9 @@ func TestEchoJWTMetricsFailedMetrics(t *testing.T) {
 	zc.SetGlobalPolicy().SetGlobalLogger()
 
 	testKey := []byte("key123") // Empty key causes signing falure
-	c := NewHMACJWTConfig(testKey).SigningMethod("HS256")
+	c := NewHMACJWTGen(testKey).SigningMethod("HS256")
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
 	p := newBasicAuthPolicy()
@@ -882,9 +882,9 @@ func TestEchoJWTMetricsMultipleHandlers(t *testing.T) {
 	zc.SetGlobalPolicy().SetGlobalLogger()
 
 	testKey := []byte("key123") // Empty key causes signing falure
-	c := NewHMACJWTConfig(testKey).SigningMethod("HS256")
+	c := NewHMACJWTGen(testKey).SigningMethod("HS256")
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
 	p := newBasicAuthPolicy()
@@ -939,5 +939,5 @@ func TestEchoJWTMetricsMultipleHandlers(t *testing.T) {
 		"login2_jwt_failed_auth_count 0"))
 
 	// Note: it also tests globalCleanup() function here as it does
-	// not creash.
+	// not crash.
 }

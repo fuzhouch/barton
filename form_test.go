@@ -33,9 +33,9 @@ func formValidate(ctx context.Context, r *http.Request,
 // HTTP form to website.
 func TestHTTPFormAuthLoginHandler(t *testing.T) {
 	testKey := []byte("test123")
-	c := NewHMACJWTConfig(testKey).SigningMethod("HS384")
+	c := NewHMACJWTGen(testKey).SigningMethod("HS384")
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
 	g := e.Group("/v1", c.NewEchoMiddleware()) // protected
@@ -43,7 +43,7 @@ func TestHTTPFormAuthLoginHandler(t *testing.T) {
 		return c.String(http.StatusOK, "hello!")
 	})
 
-	s := NewFormAuthConfig().
+	s := NewFormAuth().
 		NewGuardianStrategy(formValidate)
 	p := NewJWTGenPolicy(s)
 	e.POST("/weblogin", c.NewEchoLoginHandler(p))
@@ -61,7 +61,7 @@ func TestHTTPFormAuthLoginHandler(t *testing.T) {
 
 	// Token is retrieved successfully.
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	tokenBody := tokenBody{}
+	tokenBody := TokenResponseBody{}
 	json.Unmarshal(answer, &tokenBody)
 	values := strings.Split(tokenBody.Token, ".")
 
@@ -105,9 +105,9 @@ func TestHTTPFormAuthLoginHandler(t *testing.T) {
 // form field name for username and password.
 func TestHTTPFormAuthLoginHandlerCustomizedFormKey(t *testing.T) {
 	testKey := []byte("test123")
-	c := NewHMACJWTConfig(testKey).SigningMethod("HS384")
+	c := NewHMACJWTGen(testKey).SigningMethod("HS384")
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
 	g := e.Group("/v1", c.NewEchoMiddleware()) // protected
@@ -115,7 +115,7 @@ func TestHTTPFormAuthLoginHandlerCustomizedFormKey(t *testing.T) {
 		return c.String(http.StatusOK, "hello!")
 	})
 
-	s := NewFormAuthConfig().UsernameKey("user").PasswordKey("pwd").
+	s := NewFormAuth().UsernameKey("user").PasswordKey("pwd").
 		NewGuardianStrategy(formValidate)
 	p := NewJWTGenPolicy(s)
 	e.POST("/weblogin", c.NewEchoLoginHandler(p))
@@ -133,7 +133,7 @@ func TestHTTPFormAuthLoginHandlerCustomizedFormKey(t *testing.T) {
 
 	// Token is retrieved successfully.
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	tokenBody := tokenBody{}
+	tokenBody := TokenResponseBody{}
 	json.Unmarshal(answer, &tokenBody)
 	values := strings.Split(tokenBody.Token, ".")
 
@@ -160,9 +160,9 @@ func TestHTTPFormAuthLoginHandlerCustomizedFormKey(t *testing.T) {
 // form will cause error returns.
 func TestHTTPFormAuthParseFail(t *testing.T) {
 	testKey := []byte("test123")
-	c := NewHMACJWTConfig(testKey).SigningMethod("HS384")
+	c := NewHMACJWTGen(testKey).SigningMethod("HS384")
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
 	g := e.Group("/v1", c.NewEchoMiddleware()) // protected
@@ -170,7 +170,7 @@ func TestHTTPFormAuthParseFail(t *testing.T) {
 		return c.String(http.StatusOK, "hello!")
 	})
 
-	s := NewFormAuthConfig().
+	s := NewFormAuth().
 		UsernameKey("user").
 		PasswordKey("pwd").
 		NewGuardianStrategy(formValidate)
@@ -196,9 +196,9 @@ func TestHTTPFormAuthParseFail(t *testing.T) {
 // password.
 func TestHTTPFormAuthValidateFail(t *testing.T) {
 	testKey := []byte("test123")
-	c := NewHMACJWTConfig(testKey).SigningMethod("HS384")
+	c := NewHMACJWTGen(testKey).SigningMethod("HS384")
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
 	g := e.Group("/v1", c.NewEchoMiddleware()) // protected
@@ -206,7 +206,7 @@ func TestHTTPFormAuthValidateFail(t *testing.T) {
 		return c.String(http.StatusOK, "hello!")
 	})
 
-	s := NewFormAuthConfig().
+	s := NewFormAuth().
 		UsernameKey("user").
 		PasswordKey("pwd").
 		NewGuardianStrategy(formValidate)
@@ -233,9 +233,9 @@ func TestHTTPFormAuthValidateFail(t *testing.T) {
 // by posting HTTP form to website, when we use GET verb.
 func TestHTTPFormAuthLoginHandlerGetForm(t *testing.T) {
 	testKey := []byte("test123")
-	c := NewHMACJWTConfig(testKey).SigningMethod("HS384")
+	c := NewHMACJWTGen(testKey).SigningMethod("HS384")
 
-	e, cleanup := NewWebAppBuilder("JWTTest").NewEcho()
+	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
 	g := e.Group("/v1", c.NewEchoMiddleware()) // protected
@@ -243,7 +243,7 @@ func TestHTTPFormAuthLoginHandlerGetForm(t *testing.T) {
 		return c.String(http.StatusOK, "hello!")
 	})
 
-	s := NewFormAuthConfig().UsernameKey("user").PasswordKey("pwd").
+	s := NewFormAuth().UsernameKey("user").PasswordKey("pwd").
 		NewGuardianStrategy(formValidate)
 	p := NewJWTGenPolicy(s)
 	e.GET("/weblogin", c.NewEchoLoginHandler(p))
@@ -265,7 +265,7 @@ func TestHTTPFormAuthLoginHandlerGetForm(t *testing.T) {
 
 	// Token is retrieved successfully.
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	tokenBody := tokenBody{}
+	tokenBody := TokenResponseBody{}
 	json.Unmarshal(answer, &tokenBody)
 	values := strings.Split(tokenBody.Token, ".")
 

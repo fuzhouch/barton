@@ -15,15 +15,16 @@ type formAuth struct {
 	parser func(r *http.Request) (string, string, error)
 }
 
-// formAuthConfig creates a cofig object to configure authentication
+// FormAuth creates a cofig object to configure authentication
 // strategy.
-type formAuthConfig struct {
+type FormAuth struct {
 	usernameFormKey string
 	passwordFormKey string
 }
 
-func NewFormAuthConfig() *formAuthConfig {
-	return &formAuthConfig{
+// NewFormAuth creates an object that configures form authentication.
+func NewFormAuth() *FormAuth {
+	return &FormAuth{
 		usernameFormKey: "username",
 		passwordFormKey: "password",
 	}
@@ -31,14 +32,14 @@ func NewFormAuthConfig() *formAuthConfig {
 
 // UsernameKey is control option for NewGuardianFormAuthStrategy()
 // creator, to specify form key name for retriving username.
-func (c *formAuthConfig) UsernameKey(key string) *formAuthConfig {
+func (c *FormAuth) UsernameKey(key string) *FormAuth {
 	c.usernameFormKey = key
 	return c
 }
 
 // PasswordKey is control option for NewGuardianFormAuthStrategy()
 // creator, to specify form key name for retriving password.
-func (c *formAuthConfig) PasswordKey(key string) *formAuthConfig {
+func (c *FormAuth) PasswordKey(key string) *FormAuth {
 	c.passwordFormKey = key
 	return c
 }
@@ -48,7 +49,7 @@ func (c *formAuthConfig) PasswordKey(key string) *formAuthConfig {
 // The returned strategy does not support go-guardian's cache strategy
 // for now. As an alternative solution, manipulate cache in
 // basic.AuthenticateFunc.
-func (c *formAuthConfig) NewGuardianStrategy(fn b.AuthenticateFunc) a.Strategy {
+func (c *FormAuth) NewGuardianStrategy(fn b.AuthenticateFunc) a.Strategy {
 	strategy := formAuth{
 		fn:     fn,
 		parser: nil,

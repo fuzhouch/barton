@@ -21,7 +21,7 @@ type LogContent struct {
 	Time      string  `json:"time"`
 	Status    int     `json:"status"`
 	Method    string  `json:"method"`
-	Uri       string  `json:"uri"`
+	URI       string  `json:"uri"`
 	RemoteIP  string  `json:"remote_ip"`
 	Latency   float64 `json:"latency"`
 	UserAgent string  `json:"user_agent"`
@@ -76,7 +76,7 @@ func TestEchoAcceptZeroLog(t *testing.T) {
 	zc := NewZerologConfig().SetWriter(buf).UseUTCTime()
 	zc.SetGlobalPolicy().SetGlobalLogger()
 
-	e, cleanup := NewWebAppBuilder("BartonTest").NewEcho()
+	e, cleanup := NewWebApp("BartonTest").NewEcho()
 	defer cleanup()
 
 	buf.Reset() // Remove log lines written during Echo app creation.
@@ -111,9 +111,9 @@ func TestEchoAcceptZeroLog(t *testing.T) {
 		"Method:expect=GET,actual=%s,%s",
 		content.Method, buf.String())
 
-	assert.Equal(t, "/testpath", content.Uri,
-		"Uri:expect=/testpath,actual=%s,%s",
-		content.Uri, buf.String())
+	assert.Equal(t, "/testpath", content.URI,
+		"URI:expect=/testpath,actual=%s,%s",
+		content.URI, buf.String())
 
 	assert.NotEqual(t, "", content.RemoteIP,
 		"RemoteIP:expect=nonEmpty,actual=%s,%s",
@@ -123,9 +123,9 @@ func TestEchoAcceptZeroLog(t *testing.T) {
 		"Latency:expect=Positive,actual=%f,%s",
 		content.Latency, buf.String())
 
-	assert.Equal(t, "/testpath", content.Uri,
-		"Uri:expect=/testpath,actual=%s,%s",
-		content.Uri, buf.String())
+	assert.Equal(t, "/testpath", content.URI,
+		"URI:expect=/testpath,actual=%s,%s",
+		content.URI, buf.String())
 
 	assert.Equal(t, "Golang_UT", content.UserAgent,
 		"UserAgent:expect=Golang_UT,actual=%s,%s",

@@ -1,0 +1,5 @@
+testcli:
+  login:
+    auth-url: http://127.0.0.1:8080/login
+    token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2MzQ0NjAwMTksIm5hbWUiOiJ0ZXN0dXNlciJ9.OzTgoyYkWpNMUulqW87zI52sV9QanJsQcWGifD2zgmA
+    username: testuser
