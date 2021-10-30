@@ -399,3 +399,88 @@ func TestLogDefaultCleanupFuncCalled(t *testing.T) {
 	fmt.Printf("%s\n", content)
 	assert.True(t, strings.Contains(content, "Cleanup.NoAction.Bye"))
 }
+
+// TestExplicitlyDisableConfigOpt verifies --skip-config-file option
+// prevents config file reading.
+func TestExplicitlyDisableConfigOpt(t *testing.T) {
+	// File system contains no config file.
+	fs := afero.NewMemMapFs()
+	v := viper.New()
+	v.SetFs(fs)
+
+	// First try: by default it should read configuration
+	root, cleanupFunc := NewRootCLI("test-app").
+		AferoFS(fs).
+		Viper(v).
+		SetLocalViperPolicy().
+		NewCobraE(nil)
+	root.SetArgs([]string{})
+	err := root.Execute()
+	cleanupFunc()
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "Not Found"))
+
+	// Second try: config file is skipped.
+	root, cleanupFunc = NewRootCLI("test-app-skip-config").
+		AferoFS(fs).
+		Viper(v).
+		SetLocalViperPolicy().
+		NewCobraE(nil)
+	root.SetArgs([]string{"--skip-config-file"})
+	err = root.Execute()
+	cleanupFunc()
+	assert.Nil(t, err)
+}
+
+// TestConfigOptAndDisableConfigOptTriggerError verifies an error is
+// triggered when --config and --skip-config-file options are both
+// triggered.
+func TestConfigOptAndDisableConfigOptTriggerError(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	v := viper.New()
+	v.SetFs(fs)
+
+	root, cleanupFunc := NewRootCLI("test-app").
+		AferoFS(fs).
+		Viper(v).
+		SetLocalViperPolicy().
+		NewCobraE(nil)
+	root.SetArgs([]string{"-s", "--config", "1.yml"})
+	err := root.Execute()
+	cleanupFunc()
+
+	// Check of conflict options should happen before actual file
+	// reading.
+	assert.NotNil(t, err)
+	assert.Equal(t, err.Error(),
+		"SkipConfigOpt.ConfigOpt.Conflict")
+}
+
+// TestConfigFileSkipByDefault verifies RootCLI object does not read
+// config file by default, until triggered by SetLocalViperPolicy().
+func TestConfigFileSkipByDefault(t *testing.T) {
+	// File system contains no config file.
+	fs := afero.NewMemMapFs()
+	v := viper.New()
+	v.SetFs(fs)
+
+	// First try: by default it should read configuration
+	root, cleanupFunc := NewRootCLI("test-app").
+		AferoFS(fs).
+		Viper(v).
+		NewCobraE(nil)
+	root.SetArgs([]string{})
+	err := root.Execute()
+	cleanupFunc()
+	assert.Nil(t, err)
+
+	// Second try: config file is skipped.
+	root, cleanupFunc = NewRootCLI("test-app-skip-config").
+		AferoFS(fs).
+		Viper(v).
+		NewCobraE(nil)
+	root.SetArgs([]string{"--skip-config-file"})
+	err = root.Execute()
+	cleanupFunc()
+	assert.Nil(t, err)
+}

@@ -199,6 +199,16 @@ features.
 
 ## Changelog
 
+### v0.4.0 (developing)
+
+* [X] In-code and command line setting to skip config file reading.
+* [ ] Allow binding environment variable on command line.
+* [ ] Integrate OpenTelemetry API to record tracing.
+
+### v0.3.1
+
+* [X] Fix unit test coverage drop shown only on codecov.io.
+
 ### v0.3.0
 
 * [X] Default login sub-command based on github.com/spf13/cobra

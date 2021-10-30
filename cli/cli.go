@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -24,12 +25,13 @@ type SubcommandBuilder interface {
 
 // RootCLI configures a root client command line interface.
 type RootCLI struct {
-	appName     string
-	configFile  string
-	logFile     string
-	fs          afero.Fs
-	v           *viper.Viper
-	subCommands map[string]SubcommandBuilder
+	appName        string
+	configFile     string
+	logFile        string
+	skipConfigFile bool
+	fs             afero.Fs
+	v              *viper.Viper
+	subCommands    map[string]SubcommandBuilder
 }
 
 // NewRootCLI creates a new command line configuration object. It
@@ -38,10 +40,11 @@ type RootCLI struct {
 // cobra.Command.RunE function, which handles proper cleanup operations.
 func NewRootCLI(appName string) *RootCLI {
 	return &RootCLI{
-		appName:     appName,
-		fs:          afero.NewOsFs(),
-		v:           viper.GetViper(),
-		subCommands: make(map[string]SubcommandBuilder),
+		appName:        appName,
+		fs:             afero.NewOsFs(),
+		v:              viper.GetViper(),
+		subCommands:    make(map[string]SubcommandBuilder),
+		skipConfigFile: true,
 	}
 }
 
@@ -105,9 +108,19 @@ func (c *RootCLI) NewCobraE(run CobraRunEFunc) (*cobra.Command, CleanupFunc) {
 				return err
 			}
 
-			configCleanup, err := c.loadConfig(cc)
+			readConfig, err := c.shouldReadConfig(cc)
 			if err != nil {
 				return err
+			}
+
+			var configCleanup func()
+			if readConfig {
+				configCleanup, err = c.loadConfig(cc)
+				if err != nil {
+					return err
+				}
+			} else {
+				configCleanup = func() {}
 			}
 
 			cleanupFunc = func() {
@@ -131,6 +144,12 @@ func (c *RootCLI) NewCobraE(run CobraRunEFunc) (*cobra.Command, CleanupFunc) {
 		"l",
 		"",
 		"Path to log file. If omitted, writes to stdout.")
+	cmd.PersistentFlags().BoolVarP(
+		&c.skipConfigFile,
+		"skip-config-file",
+		"s",
+		c.skipConfigFile, // Default value is configurable in code.
+		"Skip config file reading but stick to command line options.")
 
 	// XXX Please always keep in mind that the two root options,
 	// --config and --log should NEVER be bound to any keys in
@@ -163,14 +182,26 @@ func (c *RootCLI) loadLog(cc *cobra.Command) (func(), error) {
 		return nil, err
 	}
 
-	barton.NewZerologConfig().
-		SetGlobalPolicy().
-		SetWriter(logFD).
-		SetGlobalLogger()
+	logConfig := barton.NewZerologConfig()
+	logConfig.SetGlobalPolicy().SetWriter(logFD).SetGlobalLogger()
+
 	cleanupFunc := func() {
 		logFD.Close()
 	}
 	return cleanupFunc, nil
+}
+
+func (c *RootCLI) shouldReadConfig(cc *cobra.Command) (bool, error) {
+	err := errors.New("SkipConfigOpt.ConfigOpt.Conflict")
+	arg := cc.Flags().Lookup("config")
+	if c.skipConfigFile {
+		if arg.Changed {
+			log.Error().Err(err).Msg(err.Error())
+			return false, err
+		}
+		return false, nil
+	}
+	return true, nil
 }
 
 func (c *RootCLI) loadConfig(cc *cobra.Command) (func(), error) {
@@ -207,6 +238,10 @@ func (c *RootCLI) loadConfig(cc *cobra.Command) (func(), error) {
 // path. If it's working on a non-supported OS, it will fallback to
 // a non-standard ~/.appName/config.yml
 func (c *RootCLI) SetLocalViperPolicy() *RootCLI {
+	// Setting local viper implicitly means config file needs to
+	// be read.
+	c.skipConfigFile = false
+
 	// TODO Strictly speaking we should parse $XDG_CONFIG_HOME, but
 	// it is a non-trivial work. Let's take it as is.
 	//

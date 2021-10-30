@@ -2,7 +2,7 @@ name: Barton CI/CD pipeline
 
 on:
   push:
-    branches: [ main feature/**, bugfix/**, ops/** ]
+    branches: [ main, feature/**, bugfix/**, ops/** ]
   pull_request:
     types: [ closed ]
   workflow_dispatch:
