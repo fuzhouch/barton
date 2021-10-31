@@ -93,9 +93,10 @@ type CleanupFunc = func()
 func (c *RootCLI) NewCobraE(run CobraRunEFunc) (*cobra.Command, CleanupFunc) {
 	cleanupFunc := func() { log.Info().Msg("Cleanup.NoAction.Bye") }
 	cmd := &cobra.Command{
-		Use:   c.appName,
-		Short: fmt.Sprintf("CLI for %s", c.appName),
-		Long:  fmt.Sprintf("CLI for %s", c.appName),
+		Use:              c.appName,
+		TraverseChildren: true,
+		Short:            fmt.Sprintf("CLI for %s", c.appName),
+		Long:             fmt.Sprintf("CLI for %s", c.appName),
 		RunE: func(cc *cobra.Command, args []string) error {
 			if run != nil {
 				return run(cc, args)
@@ -103,19 +104,23 @@ func (c *RootCLI) NewCobraE(run CobraRunEFunc) (*cobra.Command, CleanupFunc) {
 			return nil
 		},
 		PersistentPreRunE: func(cc *cobra.Command, args []string) error {
-			logCleanup, err := c.loadLog(cc)
+			// Cobra may pass subcommand object to
+			// PersistentPreRunE. In this case, we have to
+			// use PersistentFlags() in RootCLI.
+			r := cc.Root()
+			logCleanup, err := c.loadLog(r)
 			if err != nil {
 				return err
 			}
 
-			readConfig, err := c.shouldReadConfig(cc)
+			readConfig, err := c.shouldReadConfig(r)
 			if err != nil {
 				return err
 			}
 
 			var configCleanup func()
 			if readConfig {
-				configCleanup, err = c.loadConfig(cc)
+				configCleanup, err = c.loadConfig(r)
 				if err != nil {
 					return err
 				}
@@ -132,19 +137,28 @@ func (c *RootCLI) NewCobraE(run CobraRunEFunc) (*cobra.Command, CleanupFunc) {
 		},
 	}
 
-	cmd.PersistentFlags().StringVarP(
+	// Use Flags() instead of PersistentFlags() allow subcommands
+	// use -c / -l / -s shortcut. To make it work, add
+	// TraverseChildren flag in cmd creation to parse root level
+	// command line options.
+	// See: https://github.com/spf13/cobra/blob/master/user_guide.md#local-flag-on-parent-commands
+	//
+	// TODO Let's consider whether we need to make parameters global
+	// in next version.
+
+	cmd.Flags().StringVarP(
 		&c.configFile,
 		"config",
 		"c",
 		"",
 		"Path to config file. Omitted to use default search paths.")
-	cmd.PersistentFlags().StringVarP(
+	cmd.Flags().StringVarP(
 		&c.logFile,
 		"log",
 		"l",
 		"",
 		"Path to log file. If omitted, writes to stdout.")
-	cmd.PersistentFlags().BoolVarP(
+	cmd.Flags().BoolVarP(
 		&c.skipConfigFile,
 		"skip-config-file",
 		"s",
@@ -236,7 +250,11 @@ func (c *RootCLI) loadConfig(cc *cobra.Command) (func(), error) {
 // SetLocalViperPolicy method sets default viper configuration search file
 // name and path. This API uses os.UserConfigDir() to get XDG compatible
 // path. If it's working on a non-supported OS, it will fallback to
-// a non-standard ~/.appName/config.yml
+// a non-standard ./.appName/config.yml
+//
+// There's a side effect on calling SetLocalViperPolicy() API. When it's
+// set, RootCLI will read configuration file and raise error if
+// configuration file is not found.
 func (c *RootCLI) SetLocalViperPolicy() *RootCLI {
 	// Setting local viper implicitly means config file needs to
 	// be read.
