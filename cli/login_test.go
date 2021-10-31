@@ -28,6 +28,7 @@ func TestSubConfigCreateDefaultDatablock(t *testing.T) {
 	root := NewRootCLI("test-app").
 		AferoFS(fs).
 		Viper(v).
+		SetLocalViperPolicy().
 		AddSubcommand(login)
 	assert.Equal(t, v, login.v)
 

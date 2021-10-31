@@ -201,9 +201,10 @@ features.
 
 ### v0.4.0 (developing)
 
-* [X] In-code and command line setting to skip config file reading.
-* [ ] Allow binding environment variable on command line.
-* [ ] Integrate OpenTelemetry API to record tracing.
+* [ ] Bind environment variable on root and subcommand.
+* [X] Configuration option to skip reading configuration files.
+* [ ] Server-end send telemetry via OpenTelemetry API.
+* [X] RootCLI uses Flags() to allow subcommands use same shortcut names.
 
 ### v0.3.1
 
