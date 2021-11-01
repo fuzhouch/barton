@@ -2,11 +2,15 @@ package cli
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/fuzhouch/barton"
 	"github.com/rs/zerolog/log"
@@ -482,5 +486,76 @@ func TestConfigFileSkipByDefault(t *testing.T) {
 	root.SetArgs([]string{"--skip-config-file"})
 	err = root.Execute()
 	cleanupFunc()
+	assert.Nil(t, err)
+}
+
+// TestRootOptToSubcommandOffByDefault verifies root options are not
+// passed to subcommands if unspecified
+func TestRootOptToSubcommandOffByDefault(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	err := afero.WriteFile(fs, "config.yml",
+		[]byte("location: etc"), 0644)
+	v := viper.New()
+	v.SetFs(fs)
+
+	login := NewHTTPBasicLogin("login", "http://127.0.0.1/")
+	root := NewRootCLI("test-app").
+		AferoFS(fs).
+		Viper(v).
+		SetLocalViperPolicy().
+		AddSubcommand(login)
+	assert.Equal(t, v, login.v)
+
+	cmd, cleanupFunc := root.NewCobraE(nil)
+	defer cleanupFunc()
+
+	cmd.SetArgs([]string{"login", "--config", "config.yml"})
+	err = cmd.Execute()
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "unknown flag"))
+}
+
+// TestRootOptToSubcommandOn verfies root CLI can pass root CLI command
+// line options to client by explicitly calling RootOptsToCommand()
+func TestRootOptToSubcommandOn(t *testing.T) {
+	mockServer := httptest.NewServer(
+		http.HandlerFunc(
+			func(w http.ResponseWriter, r *http.Request) {
+				response := barton.TokenResponseBody{
+					Token:  "mock_token_1",
+					Expire: time.Now().Unix(),
+				}
+				body, _ := json.Marshal(response)
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write(body)
+			}))
+	defer mockServer.Close()
+
+	fs := afero.NewMemMapFs()
+	err := afero.WriteFile(fs, "./config.yml",
+		[]byte(`
+test-app:
+  login:
+    username: testuser`), 0644)
+	v := viper.New()
+	v.SetFs(fs)
+
+	login := NewHTTPBasicLogin("login", mockServer.URL)
+	login.cli = mockServer.Client() // Overwrite prod client.
+	root := NewRootCLI("test-app").
+		AferoFS(fs).
+		Viper(v).
+		SetLocalViperPolicy().
+		RootOptsToSubcommand().
+		AddSubcommand(login)
+	assert.Equal(t, v, login.v)
+
+	cmd, cleanupFunc := root.NewCobraE(nil)
+	defer cleanupFunc()
+
+	cmd.SetArgs([]string{"login",
+		"--config", "./config.yml",
+		"--password", "testpwd"})
+	err = cmd.Execute()
 	assert.Nil(t, err)
 }

@@ -25,13 +25,14 @@ type SubcommandBuilder interface {
 
 // RootCLI configures a root client command line interface.
 type RootCLI struct {
-	appName        string
-	configFile     string
-	logFile        string
-	skipConfigFile bool
-	fs             afero.Fs
-	v              *viper.Viper
-	subCommands    map[string]SubcommandBuilder
+	appName              string
+	configFile           string
+	logFile              string
+	skipConfigFile       bool
+	rootOptsToSubcommand bool
+	fs                   afero.Fs
+	v                    *viper.Viper
+	subCommands          map[string]SubcommandBuilder
 }
 
 // NewRootCLI creates a new command line configuration object. It
@@ -40,11 +41,12 @@ type RootCLI struct {
 // cobra.Command.RunE function, which handles proper cleanup operations.
 func NewRootCLI(appName string) *RootCLI {
 	return &RootCLI{
-		appName:        appName,
-		fs:             afero.NewOsFs(),
-		v:              viper.GetViper(),
-		subCommands:    make(map[string]SubcommandBuilder),
-		skipConfigFile: true,
+		appName:              appName,
+		fs:                   afero.NewOsFs(),
+		v:                    viper.GetViper(),
+		subCommands:          make(map[string]SubcommandBuilder),
+		skipConfigFile:       true,
+		rootOptsToSubcommand: false,
 	}
 }
 
@@ -63,6 +65,16 @@ func (c *RootCLI) AferoFS(fs afero.Fs) *RootCLI {
 // test or configure a remote readable configuration setting.
 func (c *RootCLI) Viper(v *viper.Viper) *RootCLI {
 	c.v = v
+	return c
+}
+
+// RootOptsToSubcommand is a flog that allows created cobra Command
+// does not pass root options like --config and --log option to
+// subcommands. This can lead to a simpler command line experience, but
+// with a cost that subcommands can't name command line option with
+// same shortcut.
+func (c *RootCLI) RootOptsToSubcommand() *RootCLI {
+	c.rootOptsToSubcommand = true
 	return c
 }
 
@@ -94,7 +106,7 @@ func (c *RootCLI) NewCobraE(run CobraRunEFunc) (*cobra.Command, CleanupFunc) {
 	cleanupFunc := func() { log.Info().Msg("Cleanup.NoAction.Bye") }
 	cmd := &cobra.Command{
 		Use:              c.appName,
-		TraverseChildren: true,
+		TraverseChildren: c.rootOptsToSubcommand,
 		Short:            fmt.Sprintf("CLI for %s", c.appName),
 		Long:             fmt.Sprintf("CLI for %s", c.appName),
 		RunE: func(cc *cobra.Command, args []string) error {
@@ -146,24 +158,46 @@ func (c *RootCLI) NewCobraE(run CobraRunEFunc) (*cobra.Command, CleanupFunc) {
 	// TODO Let's consider whether we need to make parameters global
 	// in next version.
 
-	cmd.Flags().StringVarP(
-		&c.configFile,
-		"config",
-		"c",
-		"",
-		"Path to config file. Omitted to use default search paths.")
-	cmd.Flags().StringVarP(
-		&c.logFile,
-		"log",
-		"l",
-		"",
-		"Path to log file. If omitted, writes to stdout.")
-	cmd.Flags().BoolVarP(
-		&c.skipConfigFile,
-		"skip-config-file",
-		"s",
-		c.skipConfigFile, // Default value is configurable in code.
-		"Skip config file reading but stick to command line options.")
+	if c.rootOptsToSubcommand {
+		cmd.PersistentFlags().StringVarP(
+			&c.configFile,
+			"config",
+			"c",
+			"",
+			"Path to config file. Use XDG search path by default.")
+		cmd.PersistentFlags().StringVarP(
+			&c.logFile,
+			"log",
+			"l",
+			"",
+			"Path to log file. If omitted, writes to stdout.")
+		cmd.PersistentFlags().BoolVarP(
+			&c.skipConfigFile,
+			"skip-config-file",
+			"s",
+			c.skipConfigFile, // Default value is configurable in code.
+			"Skip config file reading but stick to command line options.")
+
+	} else {
+		cmd.Flags().StringVarP(
+			&c.configFile,
+			"config",
+			"c",
+			"",
+			"Path to config file. Use XDG search path by default.")
+		cmd.Flags().StringVarP(
+			&c.logFile,
+			"log",
+			"l",
+			"",
+			"Path to log file. If omitted, writes to stdout.")
+		cmd.Flags().BoolVarP(
+			&c.skipConfigFile,
+			"skip-config-file",
+			"s",
+			c.skipConfigFile, // Default value is configurable in code.
+			"Skip config file reading but stick to command line options.")
+	}
 
 	// XXX Please always keep in mind that the two root options,
 	// --config and --log should NEVER be bound to any keys in
