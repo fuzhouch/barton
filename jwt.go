@@ -11,6 +11,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// ErrContextParseFail is triggerred when JWT context fail to parse.
 var ErrContextParseFail = errors.New("UserContextParseFail")
 
 // HMACJWTGen provides JWT generation logic with symmetric
