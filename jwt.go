@@ -11,8 +11,8 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// ErrContextParseFail is triggerred when JWT context fail to parse.
-var ErrContextParseFail = errors.New("UserContextParseFail")
+// ErrUserContextParseFail is triggerred when JWT context fail to parse.
+var ErrUserContextParseFail = errors.New("UserContextParseFail")
 
 // HMACJWTGen provides JWT generation logic with symmetric
 // encryption. By default it supports HS256, HS384 and HS512.
@@ -111,7 +111,7 @@ func (hc *HMACJWTGen) NewEchoLogRequestMiddleware(p *JWTGenPolicy) echo.Middlewa
 				// token dependencies, while JWT tokens
 				// are not matched.
 				log.Error().
-					Err(ErrContextParseFail).
+					Err(ErrUserContextParseFail).
 					Str(hc.contextKey, user).
 					Bool("auth", true).
 					Str("scheme", c.Scheme()).
