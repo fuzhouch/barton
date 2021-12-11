@@ -196,7 +196,7 @@ func (hc *HMACJWTGen) NewEchoLoginHandler(p *JWTGenPolicy,
 
 		m.jwtIssuedCount.Inc()
 		log.Info().
-			Str("name", username).
+			Str(hc.usernameJWTKey, username).
 			Int64("exp", expireTime).
 			Msg(p.tokenIssuedLogMsg)
 		t := TokenResponseBody{
