@@ -941,3 +941,230 @@ func TestEchoJWTMetricsMultipleHandlers(t *testing.T) {
 	// Note: it also tests globalCleanup() function here as it does
 	// not crash.
 }
+
+type LogRequestContent struct {
+	Level       string `json:"level"`
+	Auth        bool   `json:"auth"`
+	User        string `json:"user"`
+	Scheme      string `json:"scheme"`
+	Request     string `json:"request"`
+	QueryString string `json:"querystr"`
+}
+
+// TestJWTLogRequestWithToken verifies request is logged with middleware
+// enabled. A log line with message as "IncomingRequest" is printed.
+func TestJWTLogRequestWithToken(t *testing.T) {
+	buf := bytes.NewBufferString("")
+	zc := NewZerologConfig().SetWriter(buf).UseUTCTime()
+	zc.SetGlobalPolicy().SetGlobalLogger()
+
+	testKey := []byte("key123")
+	c := NewHMACJWTGen(testKey).SigningMethod("HS256")
+
+	e, cleanup := NewWebApp("JWTTestLogRequest").NewEcho()
+	defer cleanup()
+
+	p := newBasicAuthPolicy()
+	e.POST("/login", c.NewEchoLoginHandler(p))
+
+	g := e.Group("/v1", c.NewEchoMiddleware())
+	g.Use(c.NewEchoLogRequestMiddleware(p)) // Log request
+	g.GET("/hello", func(c echo.Context) error {
+		return c.String(http.StatusOK, "hello!")
+	})
+
+	// Let's get token first.
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/login", nil)
+	cred := []byte("testuser:testpwd")
+	req.Header.Set("Authorization",
+		fmt.Sprintf("Basic %s",
+			base64.StdEncoding.EncodeToString(cred)))
+
+	e.ServeHTTP(w, req)
+	resp := w.Result()
+	defer resp.Body.Close()
+
+	answer, err := ioutil.ReadAll(resp.Body)
+	assert.Nil(t, err)
+
+	// JWT token is successfully returned
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	tokenBody := TokenResponseBody{}
+	json.Unmarshal(answer, &tokenBody)
+
+	w = httptest.NewRecorder()
+	req = httptest.NewRequest("GET", "/v1/hello?to=world", nil)
+	req.Header.Set("Authorization",
+		fmt.Sprintf("Bearer %s", tokenBody.Token))
+	e.ServeHTTP(w, req)
+	resp = w.Result()
+	defer resp.Body.Close()
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	verified := false
+	jsonMsgs := strings.Split(buf.String(), "\n")
+	for _, j := range jsonMsgs {
+		if strings.Contains(j, "IncomingRequest") {
+			var content LogRequestContent
+			err := json.Unmarshal([]byte(j), &content)
+			assert.Nil(t, err)
+			assert.Equal(t, true, content.Auth)
+			assert.Equal(t, "testuser", content.User)
+			assert.Equal(t, "http", content.Scheme)
+			assert.Equal(t, "/v1/hello", content.Request)
+			assert.Equal(t, "to=world", content.QueryString)
+			verified = true
+		}
+	}
+	assert.True(t, verified, "LogMessageNotFound:IncomingRequest")
+}
+
+// TestJWTLogRequestWithToken verifies request is logged with middleware
+// enabled. A log line with message as "IncomingRequest" is printed.
+// Note that in this case, the log line is printed when there's no
+// authentication enabled.
+func TestJWTLogRequestWithoutToken(t *testing.T) {
+	buf := bytes.NewBufferString("")
+	zc := NewZerologConfig().SetWriter(buf).UseUTCTime()
+	zc.SetGlobalPolicy().SetGlobalLogger()
+
+	testKey := []byte("key123")
+	c := NewHMACJWTGen(testKey).SigningMethod("HS256")
+
+	e, cleanup := NewWebApp("JWTTestLogRequestNoAuth").NewEcho()
+	defer cleanup()
+
+	// We don't really use JWT, but just create middleware.
+	p := newBasicAuthPolicy()
+	g := e.Group("/v1", c.NewEchoLogRequestMiddleware(p))
+	g.GET("/hello", func(c echo.Context) error {
+		return c.String(http.StatusOK, "hello!")
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/v1/hello?to=world", nil)
+	e.ServeHTTP(w, req)
+	resp := w.Result()
+	defer resp.Body.Close()
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	verified := false
+	jsonMsgs := strings.Split(buf.String(), "\n")
+	for _, j := range jsonMsgs {
+		if strings.Contains(j, "IncomingRequest") {
+			var content LogRequestContent
+			err := json.Unmarshal([]byte(j), &content)
+			assert.Nil(t, err)
+			assert.Equal(t, false, content.Auth)
+			assert.Equal(t, "info", content.Level)
+			assert.Equal(t, "", content.User)
+			assert.Equal(t, "http", content.Scheme)
+			assert.Equal(t, "/v1/hello", content.Request)
+			assert.Equal(t, "to=world", content.QueryString)
+			verified = true
+		}
+	}
+	assert.True(t, verified, "LogMessageNotFound:IncomingRequest")
+}
+
+// TestJWTLogRequestCustomizedLogMessage verifies a customized message
+// other than by-default "IncomingRequest" is used.
+func TestJWTLogRequestCustomizedLogMessage(t *testing.T) {
+	buf := bytes.NewBufferString("")
+	zc := NewZerologConfig().SetWriter(buf).UseUTCTime()
+	zc.SetGlobalPolicy().SetGlobalLogger()
+
+	testKey := []byte("key123")
+	c := NewHMACJWTGen(testKey).SigningMethod("HS256")
+
+	e, cleanup := NewWebApp("JWTTestLogRequestMyMsg").NewEcho()
+	defer cleanup()
+
+	// We don't really use JWT, but just create middleware.
+	p := newBasicAuthPolicy().RequestLogMsg("TestRequestHey")
+	g := e.Group("/v1", c.NewEchoLogRequestMiddleware(p))
+	g.GET("/hello", func(c echo.Context) error {
+		return c.String(http.StatusOK, "hello!")
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/v1/hello?to=world", nil)
+	e.ServeHTTP(w, req)
+	resp := w.Result()
+	defer resp.Body.Close()
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	verified := false
+	jsonMsgs := strings.Split(buf.String(), "\n")
+	for _, j := range jsonMsgs {
+		if strings.Contains(j, "TestRequestHey") {
+			var content LogRequestContent
+			err := json.Unmarshal([]byte(j), &content)
+			assert.Nil(t, err)
+			assert.Equal(t, false, content.Auth)
+			assert.Equal(t, "info", content.Level)
+			assert.Equal(t, "", content.User)
+			assert.Equal(t, "http", content.Scheme)
+			assert.Equal(t, "/v1/hello", content.Request)
+			assert.Equal(t, "to=world", content.QueryString)
+			verified = true
+		}
+	}
+	assert.True(t, verified, "LogMessageNotFound:TestRequestHey")
+}
+
+func BadContextMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		c.Set("user", "intentionally-trigger-parse-error")
+		return next(c)
+	}
+}
+
+// TestJWTLogRequestParseError verifies a log message is printed when
+// JWT context can't be parsed successfully.
+func TestJWTLogRequestParseError(t *testing.T) {
+	buf := bytes.NewBufferString("")
+	zc := NewZerologConfig().SetWriter(buf).UseUTCTime()
+	zc.SetGlobalPolicy().SetGlobalLogger()
+
+	testKey := []byte("key123")
+	c := NewHMACJWTGen(testKey).SigningMethod("HS256")
+
+	e, cleanup := NewWebApp("JWTTestLogRequestError").NewEcho()
+	defer cleanup()
+
+	// We don't really use JWT, but just create middleware.
+	p := newBasicAuthPolicy().RequestLogMsg("TestRequestError")
+	g := e.Group("/v1",
+		BadContextMiddleware,             // Insert bad context
+		c.NewEchoLogRequestMiddleware(p)) // Then trigger error
+	g.GET("/hello", func(c echo.Context) error {
+		return c.String(http.StatusOK, "hello!")
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/v1/hello?to=world", nil)
+	e.ServeHTTP(w, req)
+	resp := w.Result()
+	defer resp.Body.Close()
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	verified := false
+	jsonMsgs := strings.Split(buf.String(), "\n")
+	for _, j := range jsonMsgs {
+		if strings.Contains(j, "TestRequestError") {
+			var content LogRequestContent
+			err := json.Unmarshal([]byte(j), &content)
+			assert.Nil(t, err)
+			assert.Equal(t, true, content.Auth)
+			assert.Equal(t, "error", content.Level)
+			assert.Equal(t, "", content.User)
+			assert.Equal(t, "http", content.Scheme)
+			assert.Equal(t, "/v1/hello", content.Request)
+			assert.Equal(t, "to=world", content.QueryString)
+			verified = true
+		}
+	}
+	assert.True(t, verified, "LogMessageNotFound:TestRequestError")
+}

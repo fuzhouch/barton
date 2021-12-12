@@ -18,6 +18,7 @@ type JWTGenPolicy struct {
 	loginStrategy     auth.Strategy
 	authFailLogMsg    string
 	tokenIssuedLogMsg string
+	requestLogMsg     string
 	printAuthFailLog  bool
 }
 
@@ -31,6 +32,7 @@ func NewJWTGenPolicy(strategy auth.Strategy) *JWTGenPolicy {
 		loginStrategy:     strategy,
 		authFailLogMsg:    "Authenticate.Fail",
 		tokenIssuedLogMsg: "Authenticate.Success.JWT.Issued",
+		requestLogMsg:     "IncomingRequest",
 		printAuthFailLog:  false,
 	}
 }
@@ -42,18 +44,28 @@ func (p *JWTGenPolicy) ExpireSpan(expire time.Duration) *JWTGenPolicy {
 }
 
 // AuthFailLogMsg specifies a log line string when authentication
-// check fails. This message is designed to use when developers search
-// failure message from ElasticSearch or Splunk.
+// check fails. This message is designed to allow developers search
+// failure message from ElasticSearch or Splunk with customized messge.
 func (p *JWTGenPolicy) AuthFailLogMsg(msg string) *JWTGenPolicy {
 	p.authFailLogMsg = msg
 	return p
 }
 
 // TokenIssuedLogMsg specifies a log line string when a token is
-// genearted successfully. This message is designed to use when
-// developers search failure message from ElasticSearch or Splunk.
+// genearted successfully. This message is designed to allow
+// developers search failure message from ElasticSearch or Splunk
+// with customized messge.
 func (p *JWTGenPolicy) TokenIssuedLogMsg(msg string) *JWTGenPolicy {
 	p.tokenIssuedLogMsg = msg
+	return p
+}
+
+// RequestLogMsg specifies a log ling string used by HMACJWTConfig,
+// which is printed when using LogRequest middleware The message is
+// designed to allow developers search failure message from
+// ElasticSearch or Splunk with customized messge.
+func (p *JWTGenPolicy) RequestLogMsg(msg string) *JWTGenPolicy {
+	p.requestLogMsg = msg
 	return p
 }
 

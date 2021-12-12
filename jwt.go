@@ -1,6 +1,7 @@
 package barton
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
@@ -10,6 +11,9 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// ErrUserContextParseFail is triggerred when JWT context fail to parse.
+var ErrUserContextParseFail = errors.New("UserContextParseFail")
+
 // HMACJWTGen provides JWT generation logic with symmetric
 // encryption. By default it supports HS256, HS384 and HS512.
 type HMACJWTGen struct {
@@ -17,17 +21,19 @@ type HMACJWTGen struct {
 	// TODO Let's double think about this: I lost type safety but
 	// gain ability to test a failed case in UT. Is it a good
 	// choice. (see unit test: TestEchoJWTGenFailure)
-	signingKey interface{}
-	contextKey string
+	signingKey     interface{}
+	contextKey     string
+	usernameJWTKey string
 }
 
 // NewHMACJWTGen creates a new configuration object to generate JWT
 // token handler and middleware.
 func NewHMACJWTGen(signingKey []byte) *HMACJWTGen {
 	return &HMACJWTGen{
-		signingMethod: "HS256",
-		signingKey:    signingKey,
-		contextKey:    "user", // Keep compatibility with Echo.
+		signingMethod:  "HS256",
+		signingKey:     signingKey,
+		contextKey:     "user", // Compatible with Echo
+		usernameJWTKey: "name",
 	}
 }
 
@@ -69,12 +75,61 @@ func (hc *HMACJWTGen) NewEchoMiddleware() echo.MiddlewareFunc {
 	return middleware.JWTWithConfig(config)
 }
 
+// NewEchoLogRequestMiddleware is a middleware to log request URL and
+// user name. Useful for audit purpose. Note that this middleware still
+// prints when there's no token accessed
+func (hc *HMACJWTGen) NewEchoLogRequestMiddleware(p *JWTGenPolicy) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			key := c.Get(hc.contextKey)
+			if key == nil {
+				log.Info().
+					Bool("auth", false).
+					Str("scheme", c.Scheme()).
+					Str("request", c.Path()).
+					Str("querystr", c.QueryString()).
+					Msg(p.requestLogMsg)
+				return next(c)
+			}
+
+			var user string
+			if token, ok := key.(*jwt.Token); ok {
+				cl := token.Claims.(jwt.MapClaims)
+				user = cl[hc.usernameJWTKey].(string)
+				log.Info().
+					Bool("auth", true).
+					Str(hc.contextKey, user).
+					Str("scheme", c.Scheme()).
+					Str("request", c.Path()).
+					Str("querystr", c.QueryString()).
+					Msg(p.requestLogMsg)
+			} else {
+				// Something wrong happening: context
+				// key is found, but somehow token
+				// object was not parsed as jwt.Token.
+				// It may happen when upgrading JWT
+				// token dependencies, while JWT tokens
+				// are not matched.
+				log.Error().
+					Err(ErrUserContextParseFail).
+					Str(hc.contextKey, user).
+					Bool("auth", true).
+					Str("scheme", c.Scheme()).
+					Str("request", c.Path()).
+					Str("querystr", c.QueryString()).
+					Msg(p.requestLogMsg)
+			}
+			return next(c)
+		}
+	}
+}
+
 // A private function to generate JWT token from given user name.
 func (hc *HMACJWTGen) token(exp int64, name string) (string, error) {
 	alg := jwt.GetSigningMethod(hc.signingMethod)
 	claims := jwt.MapClaims{
-		"exp":  exp,
-		"name": name,
+		"exp":             exp,
+		hc.usernameJWTKey: name,
 	}
 	token := jwt.NewWithClaims(alg, claims)
 	tokenStr, err := token.SignedString(hc.signingKey)
@@ -141,7 +196,7 @@ func (hc *HMACJWTGen) NewEchoLoginHandler(p *JWTGenPolicy,
 
 		m.jwtIssuedCount.Inc()
 		log.Info().
-			Str("name", username).
+			Str(hc.usernameJWTKey, username).
 			Int64("exp", expireTime).
 			Msg(p.tokenIssuedLogMsg)
 		t := TokenResponseBody{
