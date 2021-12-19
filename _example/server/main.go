@@ -32,10 +32,10 @@ func main() {
 	// Setup JWT authentication
 	testKey := []byte("keep-it-secret")
 
-	jwtGen := barton.NewHMACJWTGen(testKey)
+	gen := barton.NewHMACJWTGen(testKey)
 	// Authentication method
 	strategy := basic.New(validate)
-	policy := barton.NewJWTGenPolicy(strategy).PrintAuthFailLog(true)
+	b := barton.NewJWTBuilder(strategy, gen).PrintAuthFailLog(true)
 
 	// Create Echo app with Prometheus enabled.
 	// JWT token authentication is enabled explicitly.
@@ -44,10 +44,10 @@ func main() {
 
 	// Add /login endpoint to handle login requests. It's
 	// unprotected.
-	e.POST("/login", jwtGen.NewEchoLoginHandler(policy))
+	e.POST("/login", b.NewEchoLoginHandler())
 
 	// All other APIs, are protected by JWT checking middleware.
-	g := e.Group("/v1", jwtGen.NewEchoMiddleware())
+	g := e.Group("/v1", b.NewEchoAuthMiddleware())
 	g.GET("/hello", func(c echo.Context) error { // Protected by JWT.
 		return c.String(http.StatusOK, "hello!")
 	})
