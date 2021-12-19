@@ -88,7 +88,7 @@ func TestEchoEnablePrometheusNoException(t *testing.T) {
 	e, cleanup := NewWebApp("BartonTest").NewEcho()
 	defer cleanup()
 
-	e.Use(c.NewEchoMiddleware())
+	e.Use(c.NewEchoAuthMiddleware())
 
 	// Prometheus path /metrics is also protected.
 	w := httptest.NewRecorder()
@@ -132,7 +132,7 @@ func TestEchoEnablePrometheusBecomeJWTException(t *testing.T) {
 	e, cleanup := NewWebApp("BartonTest").NewEcho()
 	defer cleanup()
 
-	g := e.Group("/v1", c.NewEchoMiddleware())
+	g := e.Group("/v1", c.NewEchoAuthMiddleware())
 	g.GET("/protected", func(c echo.Context) error {
 		return c.String(http.StatusOK, "hello!")
 	})
