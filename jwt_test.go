@@ -68,7 +68,7 @@ func TestEchoEnableJWTPreventNoJWTAccess(t *testing.T) {
 	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
-	e.Use(c.NewEchoMiddleware())
+	e.Use(c.NewEchoAuthMiddleware())
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/test/nojwt", nil)
@@ -86,7 +86,7 @@ func TestEchoEnableJWTPreventInvalidJWTAccess(t *testing.T) {
 	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
-	e.Use(c.NewEchoMiddleware())
+	e.Use(c.NewEchoAuthMiddleware())
 
 	badSignKey := []byte("test456")
 	badSignKeyToken := newToken(t, "HS256", badSignKey)
@@ -118,7 +118,7 @@ func TestEchoEnableJWTAllowValidToken(t *testing.T) {
 	c := NewHMACJWTGen(testKey).SigningMethod("HS384")
 
 	e, cleanup := NewWebApp("JWTTest").NewEcho()
-	e.Use(c.NewEchoMiddleware())
+	e.Use(c.NewEchoAuthMiddleware())
 	defer cleanup()
 
 	e.GET("/test/jwt", func(c echo.Context) error {
@@ -155,7 +155,7 @@ func validate(ctx context.Context, r *http.Request,
 	return nil, fmt.Errorf("Invalid credentials")
 }
 
-func newBasicAuthPolicy() *JWTGenPolicy {
+func newBasicAuthPolicy(gen JWTGen) *JWTBuilder {
 	// For simplicity reason, we don't use cached version. Please
 	// refer to https://github.com/shaj13/go-guardian and see
 	// _example/basic/main.go for a start.
@@ -174,7 +174,7 @@ func newBasicAuthPolicy() *JWTGenPolicy {
 	// return NewJWTGenPolicy(strategy)
 
 	strategy := basic.New(validate)
-	return NewJWTGenPolicy(strategy)
+	return NewJWTBuilder(strategy, gen)
 }
 
 type Header struct {
@@ -206,13 +206,13 @@ func TestEchoJWTLoginHandler(t *testing.T) {
 	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
-	g := e.Group("/v1", c.NewEchoMiddleware())
+	g := e.Group("/v1", c.NewEchoAuthMiddleware())
 	g.GET("/hello", func(c echo.Context) error {
 		return c.String(http.StatusOK, "hello!")
 	})
 
-	p := newBasicAuthPolicy()
-	e.POST("/login", c.NewEchoLoginHandler(p))
+	p := newBasicAuthPolicy(c)
+	e.POST("/login", p.NewEchoLoginHandler())
 
 	// Let's get token first.
 	w := httptest.NewRecorder()
@@ -294,8 +294,8 @@ func TestEchoReturnJWTTokenCustomizedLogs(t *testing.T) {
 	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
-	p := newBasicAuthPolicy().TokenIssuedLogMsg("Bravo!")
-	e.POST("/login", c.NewEchoLoginHandler(p))
+	p := newBasicAuthPolicy(c).TokenIssuedLogMsg("Bravo!")
+	e.POST("/login", p.NewEchoLoginHandler())
 
 	// Let's get token first.
 	w := httptest.NewRecorder()
@@ -355,8 +355,8 @@ func TestEchoBadAuthenticationNoLog(t *testing.T) {
 	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
-	p := newBasicAuthPolicy()
-	e.POST("/login", c.NewEchoLoginHandler(p))
+	p := newBasicAuthPolicy(c)
+	e.POST("/login", p.NewEchoLoginHandler())
 
 	// Intentionally try to login with a bad password
 	w := httptest.NewRecorder()
@@ -398,8 +398,8 @@ func TestEchoBadAuthenticationPrintLog(t *testing.T) {
 	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
-	p := newBasicAuthPolicy().PrintAuthFailLog(true)
-	e.POST("/login", c.NewEchoLoginHandler(p))
+	p := newBasicAuthPolicy(c).PrintAuthFailLog(true)
+	e.POST("/login", p.NewEchoLoginHandler())
 
 	// Intentionally try to login with a bad password
 	w := httptest.NewRecorder()
@@ -442,10 +442,10 @@ func TestEchoBadAuthenticationPrintCustomizedLog(t *testing.T) {
 	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
-	p := newBasicAuthPolicy().
+	p := newBasicAuthPolicy(c).
 		AuthFailLogMsg("Don't Panic!").
 		PrintAuthFailLog(true)
-	e.POST("/login", c.NewEchoLoginHandler(p))
+	e.POST("/login", p.NewEchoLoginHandler())
 
 	// Intentionally try to login with a bad password
 	w := httptest.NewRecorder()
@@ -486,14 +486,14 @@ func TestEchoReturnJWTTokenWithShorterExpireSpan(t *testing.T) {
 	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
-	g := e.Group("/v1", c.NewEchoMiddleware())
+	g := e.Group("/v1", c.NewEchoAuthMiddleware())
 	g.GET("/hello", func(c echo.Context) error {
 		return c.String(http.StatusOK, "hello!")
 	})
 
 	// Always return expired token
-	p := newBasicAuthPolicy().ExpireSpan(time.Hour * -1)
-	e.POST("/login", c.NewEchoLoginHandler(p))
+	p := newBasicAuthPolicy(c).ExpireSpan(time.Hour * -1)
+	e.POST("/login", p.NewEchoLoginHandler())
 
 	// Let's get token first.
 	w := httptest.NewRecorder()
@@ -568,8 +568,8 @@ func TestEchoJWTGenFailure(t *testing.T) {
 	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
-	p := newBasicAuthPolicy()
-	e.POST("/login", c.NewEchoLoginHandler(p))
+	p := newBasicAuthPolicy(c)
+	e.POST("/login", p.NewEchoLoginHandler())
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/login", nil)
@@ -607,59 +607,22 @@ func TestEchoJWTGenFailure(t *testing.T) {
 func TestEchoLookupJWTTokenFromContext(t *testing.T) {
 	testKey := []byte("test123")
 	c := NewHMACJWTGen(testKey).SigningMethod("HS384")
-	token, err := c.token(time.Now().Add(time.Hour*1).Unix(), "tu")
+	token, err := c.NewTokenStr(jwt.MapClaims{
+		"exp":  time.Now().Add(time.Hour * 1).Unix(),
+		"name": "tu",
+	})
 	assert.Nil(t, err)
 
 	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
-	e.Use(c.NewEchoMiddleware())
+	e.Use(c.NewEchoAuthMiddleware())
 	e.GET("/hello", func(c echo.Context) error {
 		user, ok := c.Get("user").(*jwt.Token)
 		assert.True(t, ok)
 		claims, ok := user.Claims.(jwt.MapClaims)
 		assert.True(t, ok)
 		assert.Equal(t, "tu", claims["name"])
-		return c.String(http.StatusOK, "hello!")
-	})
-
-	// Received token can be used to call APIs.
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/hello", nil)
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
-
-	e.ServeHTTP(w, req)
-	resp := w.Result()
-	defer resp.Body.Close()
-
-	answer, err := ioutil.ReadAll(resp.Body)
-	assert.Nil(t, err)
-
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	assert.Equal(t, "hello!", string(answer))
-}
-
-// TestEchoLookupJWTTokenFromContextWithCustomizedKey demonstrates
-// how to receive user name from JWT token stored in context, while
-// the lookup key name in context is customized.
-func TestEchoLookupJWTTokenFromContextWithCustomizedKey(t *testing.T) {
-	testKey := []byte("test123")
-	c := NewHMACJWTGen(testKey).
-		SigningMethod("HS384").
-		ContextKey("context-key")
-	token, err := c.token(time.Now().Add(time.Hour*1).Unix(), "tu2")
-	assert.Nil(t, err)
-
-	e, cleanup := NewWebApp("JWTTest").NewEcho()
-	defer cleanup()
-
-	e.Use(c.NewEchoMiddleware())
-	e.GET("/hello", func(c echo.Context) error {
-		user, ok := c.Get("context-key").(*jwt.Token)
-		assert.True(t, ok)
-		claims, ok := user.Claims.(jwt.MapClaims)
-		assert.True(t, ok)
-		assert.Equal(t, "tu2", claims["name"])
 		return c.String(http.StatusOK, "hello!")
 	})
 
@@ -688,8 +651,8 @@ func TestEchoJWTMetricsDefaultName(t *testing.T) {
 	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
-	p := newBasicAuthPolicy()
-	e.POST("/login", c.NewEchoLoginHandler(p)) // No prefix!
+	p := newBasicAuthPolicy(c)
+	e.POST("/login", p.NewEchoLoginHandler()) // No prefix!
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/login", nil)
@@ -738,8 +701,8 @@ func TestEchoJWTMetricsCustomizedName(t *testing.T) {
 	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
-	p := newBasicAuthPolicy()
-	e.POST("/login", c.NewEchoLoginHandler(p, "defaultLogin"))
+	p := newBasicAuthPolicy(c)
+	e.POST("/login", p.NewEchoLoginHandler("defaultLogin"))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/login", nil)
@@ -793,8 +756,8 @@ func TestEchoJWTMetricsMultiplePrefixTakeOne(t *testing.T) {
 	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
-	p := newBasicAuthPolicy()
-	e.POST("/login", c.NewEchoLoginHandler(p,
+	p := newBasicAuthPolicy(c)
+	e.POST("/login", p.NewEchoLoginHandler(
 		"defaultLogin2", "skipped"))
 
 	w := httptest.NewRecorder()
@@ -842,8 +805,8 @@ func TestEchoJWTMetricsFailedMetrics(t *testing.T) {
 	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
-	p := newBasicAuthPolicy()
-	e.POST("/login", c.NewEchoLoginHandler(p, "defaultLoginS"))
+	p := newBasicAuthPolicy(c)
+	e.POST("/login", p.NewEchoLoginHandler("defaultLoginS"))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/login", nil)
@@ -887,9 +850,9 @@ func TestEchoJWTMetricsMultipleHandlers(t *testing.T) {
 	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
-	p := newBasicAuthPolicy()
-	e.POST("/login1", c.NewEchoLoginHandler(p, "login1"))
-	e.POST("/login2", c.NewEchoLoginHandler(p, "login2"))
+	p := newBasicAuthPolicy(c)
+	e.POST("/login1", p.NewEchoLoginHandler("login1"))
+	e.POST("/login2", p.NewEchoLoginHandler("login2"))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/login1", nil)
@@ -964,11 +927,11 @@ func TestJWTLogRequestWithToken(t *testing.T) {
 	e, cleanup := NewWebApp("JWTTestLogRequest").NewEcho()
 	defer cleanup()
 
-	p := newBasicAuthPolicy()
-	e.POST("/login", c.NewEchoLoginHandler(p))
+	p := newBasicAuthPolicy(c)
+	e.POST("/login", p.NewEchoLoginHandler())
 
-	g := e.Group("/v1", c.NewEchoMiddleware())
-	g.Use(c.NewEchoLogRequestMiddleware(p)) // Log request
+	g := e.Group("/v1", c.NewEchoAuthMiddleware())
+	g.Use(p.NewEchoLogRequestMiddleware()) // Log request
 	g.GET("/hello", func(c echo.Context) error {
 		return c.String(http.StatusOK, "hello!")
 	})
@@ -1036,8 +999,8 @@ func TestJWTLogRequestWithoutToken(t *testing.T) {
 	defer cleanup()
 
 	// We don't really use JWT, but just create middleware.
-	p := newBasicAuthPolicy()
-	g := e.Group("/v1", c.NewEchoLogRequestMiddleware(p))
+	p := newBasicAuthPolicy(c)
+	g := e.Group("/v1", p.NewEchoLogRequestMiddleware())
 	g.GET("/hello", func(c echo.Context) error {
 		return c.String(http.StatusOK, "hello!")
 	})
@@ -1082,8 +1045,8 @@ func TestJWTLogRequestCustomizedLogMessage(t *testing.T) {
 	defer cleanup()
 
 	// We don't really use JWT, but just create middleware.
-	p := newBasicAuthPolicy().RequestLogMsg("TestRequestHey")
-	g := e.Group("/v1", c.NewEchoLogRequestMiddleware(p))
+	p := newBasicAuthPolicy(c).RequestLogMsg("TestRequestHey")
+	g := e.Group("/v1", p.NewEchoLogRequestMiddleware())
 	g.GET("/hello", func(c echo.Context) error {
 		return c.String(http.StatusOK, "hello!")
 	})
@@ -1135,10 +1098,10 @@ func TestJWTLogRequestParseError(t *testing.T) {
 	defer cleanup()
 
 	// We don't really use JWT, but just create middleware.
-	p := newBasicAuthPolicy().RequestLogMsg("TestRequestError")
+	p := newBasicAuthPolicy(c).RequestLogMsg("TestRequestError")
 	g := e.Group("/v1",
-		BadContextMiddleware,             // Insert bad context
-		c.NewEchoLogRequestMiddleware(p)) // Then trigger error
+		BadContextMiddleware,            // Insert bad context
+		p.NewEchoLogRequestMiddleware()) // Then trigger error
 	g.GET("/hello", func(c echo.Context) error {
 		return c.String(http.StatusOK, "hello!")
 	})

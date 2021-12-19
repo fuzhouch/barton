@@ -38,15 +38,15 @@ func TestHTTPFormAuthLoginHandler(t *testing.T) {
 	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
-	g := e.Group("/v1", c.NewEchoMiddleware()) // protected
+	g := e.Group("/v1", c.NewEchoAuthMiddleware()) // protected
 	g.GET("/hello", func(c echo.Context) error {
 		return c.String(http.StatusOK, "hello!")
 	})
 
 	s := NewFormAuth().
 		NewGuardianStrategy(formValidate)
-	p := NewJWTGenPolicy(s)
-	e.POST("/weblogin", c.NewEchoLoginHandler(p))
+	p := NewJWTBuilder(s, c)
+	e.POST("/weblogin", p.NewEchoLoginHandler())
 
 	body := strings.NewReader("username=testuser&password=testpwd")
 	w := httptest.NewRecorder()
@@ -110,15 +110,15 @@ func TestHTTPFormAuthLoginHandlerCustomizedFormKey(t *testing.T) {
 	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
-	g := e.Group("/v1", c.NewEchoMiddleware()) // protected
+	g := e.Group("/v1", c.NewEchoAuthMiddleware()) // protected
 	g.GET("/hello", func(c echo.Context) error {
 		return c.String(http.StatusOK, "hello!")
 	})
 
 	s := NewFormAuth().UsernameKey("user").PasswordKey("pwd").
 		NewGuardianStrategy(formValidate)
-	p := NewJWTGenPolicy(s)
-	e.POST("/weblogin", c.NewEchoLoginHandler(p))
+	p := NewJWTBuilder(s, c)
+	e.POST("/weblogin", p.NewEchoLoginHandler())
 
 	body := strings.NewReader("user=testuser&pwd=testpwd")
 	w := httptest.NewRecorder()
@@ -165,7 +165,7 @@ func TestHTTPFormAuthParseFail(t *testing.T) {
 	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
-	g := e.Group("/v1", c.NewEchoMiddleware()) // protected
+	g := e.Group("/v1", c.NewEchoAuthMiddleware()) // protected
 	g.GET("/hello", func(c echo.Context) error {
 		return c.String(http.StatusOK, "hello!")
 	})
@@ -174,8 +174,8 @@ func TestHTTPFormAuthParseFail(t *testing.T) {
 		UsernameKey("user").
 		PasswordKey("pwd").
 		NewGuardianStrategy(formValidate)
-	p := NewJWTGenPolicy(s)
-	e.POST("/weblogin", c.NewEchoLoginHandler(p))
+	p := NewJWTBuilder(s, c)
+	e.POST("/weblogin", p.NewEchoLoginHandler())
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/weblogin", nil)
@@ -201,7 +201,7 @@ func TestHTTPFormAuthValidateFail(t *testing.T) {
 	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
-	g := e.Group("/v1", c.NewEchoMiddleware()) // protected
+	g := e.Group("/v1", c.NewEchoAuthMiddleware()) // protected
 	g.GET("/hello", func(c echo.Context) error {
 		return c.String(http.StatusOK, "hello!")
 	})
@@ -210,8 +210,8 @@ func TestHTTPFormAuthValidateFail(t *testing.T) {
 		UsernameKey("user").
 		PasswordKey("pwd").
 		NewGuardianStrategy(formValidate)
-	p := NewJWTGenPolicy(s)
-	e.POST("/weblogin", c.NewEchoLoginHandler(p))
+	p := NewJWTBuilder(s, c)
+	e.POST("/weblogin", p.NewEchoLoginHandler())
 
 	// Intentionally provide wrong user name and password.
 	body := strings.NewReader("user=testuser2&pwd=testpwd2")
@@ -234,19 +234,19 @@ func TestHTTPFormAuthValidateFail(t *testing.T) {
 func TestHTTPFormAuthLoginHandlerGetForm(t *testing.T) {
 	testKey := []byte("test123")
 	c := NewHMACJWTGen(testKey).SigningMethod("HS384")
+	s := NewFormAuth().UsernameKey("user").PasswordKey("pwd").
+		NewGuardianStrategy(formValidate)
+	b := NewJWTBuilder(s, c)
 
 	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
-	g := e.Group("/v1", c.NewEchoMiddleware()) // protected
+	g := e.Group("/v1", c.NewEchoAuthMiddleware()) // protected
 	g.GET("/hello", func(c echo.Context) error {
 		return c.String(http.StatusOK, "hello!")
 	})
 
-	s := NewFormAuth().UsernameKey("user").PasswordKey("pwd").
-		NewGuardianStrategy(formValidate)
-	p := NewJWTGenPolicy(s)
-	e.GET("/weblogin", c.NewEchoLoginHandler(p))
+	e.GET("/weblogin", b.NewEchoLoginHandler())
 
 	// It's not recommended to use GET, but we allow it to keep
 	// compatibility with standard HTTP library. Note that it's
