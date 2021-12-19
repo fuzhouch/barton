@@ -206,12 +206,12 @@ func TestEchoJWTLoginHandler(t *testing.T) {
 	e, cleanup := NewWebApp("JWTTest").NewEcho()
 	defer cleanup()
 
-	g := e.Group("/v1", c.NewEchoAuthMiddleware())
+	p := newBasicAuthPolicy(c)
+	g := e.Group("/v1", p.NewEchoAuthMiddleware())
 	g.GET("/hello", func(c echo.Context) error {
 		return c.String(http.StatusOK, "hello!")
 	})
 
-	p := newBasicAuthPolicy(c)
 	e.POST("/login", p.NewEchoLoginHandler())
 
 	// Let's get token first.
