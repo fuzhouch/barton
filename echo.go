@@ -17,8 +17,7 @@ import (
 // an Echo web server via NewEcho() method.
 type WebApp struct {
 	appName                   string
-	enablePrometheus          bool
-	enableJWTAuthentication   bool
+	otelTraceName             string
 	enableOpenTelemetryTracer bool
 }
 
@@ -30,15 +29,23 @@ type WebApp struct {
 func NewWebApp(appName string) *WebApp {
 	return &WebApp{
 		appName:                   appName,
+		otelTraceName:             appName,
 		enableOpenTelemetryTracer: false,
 	}
 }
 
 // Name setter sets app name for Echo engine. By defualt the name is
 // set to Barton-Echo-App.
-func (c *WebApp) Name(name string) *WebApp {
-	c.appName = name
-	return c
+func (w *WebApp) Name(name string) *WebApp {
+	w.appName = name
+	return w
+}
+
+// Tracer setter sets OpenTelemetry tracer unique name. By default it's
+// set to same with App name.
+func (w *WebApp) TracerName(name string) *WebApp {
+	w.otelTraceName = name
+	return w
 }
 
 // EnableOpenTelemetryTracer creates a default OpenTelemetry tracer
@@ -47,15 +54,15 @@ func (c *WebApp) Name(name string) *WebApp {
 // call this API.
 //
 // For security reason, this tracer does not use
-func (c *WebApp) EnableOpenTelemetryTracer() *WebApp {
-	c.enableOpenTelemetryTracer = true
-	return c
+func (w *WebApp) EnableOpenTelemetryTracer() *WebApp {
+	w.enableOpenTelemetryTracer = true
+	return w
 }
 
 // NewEcho method creates a real echo.Echo object, plus a cleanup()
 // function to execute internal cleanup logic, such as
 // unregistering Prometheus metrics collector in global registry.
-func (c *WebApp) NewEcho() (*echo.Echo, func()) {
+func (w *WebApp) NewEcho() (*echo.Echo, func()) {
 	e := echo.New()
 
 	wrapper := lecho.From(log.Logger)
@@ -65,13 +72,13 @@ func (c *WebApp) NewEcho() (*echo.Echo, func()) {
 
 	e.Use(middleware.Recover())
 
-	p := prometheus.NewPrometheus(c.appName, nil)
+	p := prometheus.NewPrometheus(w.appName, nil)
 	p.Use(e)
 	log.Info().Msg("PrometheusExporter.Enabled")
 
-	if c.enableOpenTelemetryTracer {
+	if w.enableOpenTelemetryTracer {
 		log.Info().Msg("OpenTelemetryTracerMiddleware.Enabled")
-		e.Use(c.openTelemetryTracerMiddleware())
+		e.Use(w.openTelemetryTracerMiddleware())
 	}
 
 	cleanupFunc := func() {
@@ -88,7 +95,7 @@ func (wa *WebApp) openTelemetryTracerMiddleware() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			ctx := c.Request().Context()
-			_, span := otel.Tracer(wa.appName).
+			_, span := otel.Tracer(wa.otelTraceName).
 				Start(ctx, c.Path())
 			defer span.End()
 
