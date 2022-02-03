@@ -17,6 +17,8 @@ require (
 	github.com/spf13/viper v1.9.0 // indirect
 	github.com/stretchr/testify v1.7.0 // test
 	github.com/ziflex/lecho/v2 v2.3.0 // indirect
+	go.opentelemetry.io/otel v1.3.0 // indirect
+	go.opentelemetry.io/otel/trace v1.3.0 // indirect
 	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5 // indirect
 	golang.org/x/net v0.0.0-20210908191846-a5e095526f91 // indirect
 	golang.org/x/sys v0.0.0-20210925032602-92d5a993a665 // indirect
