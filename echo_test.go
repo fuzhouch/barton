@@ -2,6 +2,7 @@ package barton
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -12,6 +13,9 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
+	"go.opentelemetry.io/otel/sdk/trace"
 )
 
 func TestEchoNameChange(t *testing.T) {
@@ -176,4 +180,40 @@ func TestEchoEnablePrometheusBecomeJWTException(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Equal(t, "hello!", string(answer))
+}
+
+func TestOpenTelemetryEnable(t *testing.T) {
+	// Tracer data is written to a string buffer.
+	buf := bytes.NewBufferString("")
+	exporter := stdouttrace.New(
+		stdouttrace.WithWriter(buf),
+		stdouttrace.WithPrettyPrint(),
+		stdouttrace.WithoutTimestamps())
+
+	tp := trace.NewTracerProvider(trace.WithBatcher(exporter))
+	defer func() {
+		_ = tp.Shutdown(context.Background())
+	}()
+	otel.SetTracerProvider(tp)
+
+	app := NewWebApp("BartonTest").EnableTracer()
+	e, cleanup := app.NewEcho()
+	defer cleanup()
+
+	e.GET("/hello", func(c echo.Context) error {
+		return c.String(http.StatusOK, "hello")
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/hello", nil)
+	e.ServeHTTP(w, req)
+	resp := w.Result()
+	defer resp.Body.Close()
+
+	answer, err := ioutil.ReadAll(resp.Body)
+	assert.Nil(t, err)
+
+	// The content should be written to buf
+	fmt.Printf("%s\n", buf.String())
+	assert.True(t, false)
 }

@@ -41,20 +41,23 @@ func (w *WebApp) Name(name string) *WebApp {
 	return w
 }
 
-// Tracer setter sets OpenTelemetry tracer unique name. By default it's
-// set to same with App name.
-func (w *WebApp) TracerName(name string) *WebApp {
+// TracerUniqueName setter sets OpenTelemetry tracer unique name. If the
+// API is not called, the name is set to same with App name by default.
+func (w *WebApp) TracerUniqueName(name string) *WebApp {
 	w.otelTraceName = name
 	return w
 }
 
-// EnableOpenTelemetryTracer creates a default OpenTelemetry tracer
-// middleware to all paths. It's disabled by default. Developers who
-// want to customize their own OpenTelemetry tracer, can choose not to
-// call this API.
+// EnableTracer creates a default OpenTelemetry tracer
+// middleware to all paths. It's disabled by default. The tracer tracks
+// only path and attach query parameters as attributes. This approach
+// gives a minimal out-of-box useable tracer experiences, with limited
+// customization.
 //
-// For security reason, this tracer does not use
-func (w *WebApp) EnableOpenTelemetryTracer() *WebApp {
+// Developers can choose ignoring this API but directly creates their
+// own OpenTelemetry tracer into URL handlers. This is useful when
+// developers want a full customization capability.
+func (w *WebApp) EnableTracer() *WebApp {
 	w.enableOpenTelemetryTracer = true
 	return w
 }
@@ -100,9 +103,9 @@ func (wa *WebApp) openTelemetryTracerMiddleware() echo.MiddlewareFunc {
 			defer span.End()
 
 			// For security reason, we keep only query
-			// parameter and path, which are known to be
-			// visible as part of public URL. Other parts,
-			// actually cookie and form values, are
+			// string and path, which are known to be
+			// visible as part of URL. Other parts,
+			// actually cookies and form values, are
 			// forbidden to be saved in our code.
 			//
 			// I can't prevent developers doing this if they
